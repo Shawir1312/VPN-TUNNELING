@@ -204,8 +204,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <input type="text" name="router_user" id="inputRouterUser" value="<?= htmlspecialchars($routerProfile['username'] ?? '') ?>" required class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500">
                         </div>
                         <div>
-                            <label class="block text-slate-600 dark:text-slate-300 font-semibold mb-1">Password API</label>
-                            <input type="password" name="router_pass" id="inputRouterPass" placeholder="Kosongkan jika tetap" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500">
+                            <label class="block text-slate-600 dark:text-slate-300 font-semibold mb-1">Password API MikroTik</label>
+                            <input type="password" name="router_pass" id="inputRouterPass" placeholder="Ketik Password Winbox / Router" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 font-mono">
+                            <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                                Ketik password Winbox Anda jika baru / ganti, lalu klik Simpan Pengaturan.
+                            </p>
                         </div>
                     </div>
                     <div>

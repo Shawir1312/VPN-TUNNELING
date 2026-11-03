@@ -46,9 +46,13 @@ if ($action === 'test_connection') {
             'message' => "Berhasil terhubung ke {$board} (RouterOS v{$ver})!"
         ]);
     } else {
+        $errMsg = $testRos->error ?: 'Gagal terhubung ke MikroTik API';
+        if (str_contains(strtolower($errMsg), 'invalid user') || str_contains(strtolower($errMsg), 'password')) {
+            $errMsg = "Koneksi ke port {$port} berhasil, TAPI Login Ditolak oleh MikroTik: Username ('{$username}') atau Password salah! Silakan masukkan password Winbox/MikroTik Anda dengan benar.";
+        }
         echo json_encode([
             'success' => false,
-            'message' => $testRos->error ?: 'Gagal terhubung ke MikroTik API'
+            'message' => $errMsg
         ]);
     }
     exit;
