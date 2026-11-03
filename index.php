@@ -163,9 +163,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="mt-6 text-center text-xs text-slate-400 dark:text-slate-500 space-y-1.5">
             <div>Koneksi via MikroTik RouterOS API Port 8728</div>
             <div class="pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-center gap-1 font-medium">
-                <span>&copy; <?= date('Y') ?> VPN Manager &bull; Crafted with</span>
-                <span class="text-rose-500 animate-pulse">❤️</span>
-                <span>by <strong class="text-blue-500 font-bold hover:underline">Shawir</strong></span>
+                <span>&copy; <?= date('Y') ?> VPN Manager &bull; Developed by <strong class="text-blue-500 font-bold hover:underline">Shawir</strong></span>
             </div>
         </div>
     </div>

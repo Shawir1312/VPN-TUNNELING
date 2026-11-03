@@ -115,4 +115,4 @@ VPN-TUNNELING/
 - **Lead Developer / Author**: **Shawir**
 - **Repository**: [VPN-TUNNELING (GitHub)](https://github.com/Shawir1312/VPN-TUNNELING.git)
 - **Copyright**: &copy; 2026 **Shawir**. All rights reserved.
-- **Crafted with**: ❤️ Full PHP 8, SQLite, TailwindCSS & MikroTik RouterOS API.
+- **Technology**: Full PHP 8, SQLite, TailwindCSS & MikroTik RouterOS API.

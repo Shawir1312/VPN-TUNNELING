@@ -313,9 +313,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $allPass) {
         <div class="mt-6 text-center text-xs text-slate-500 space-y-1.5">
             <div>MikroTik SSTP, L2TP &amp; Dst-NAT Manager &bull; v1.4.0</div>
             <div class="pt-2 border-t border-slate-700/60 flex items-center justify-center gap-1 font-medium text-slate-400">
-                <span>&copy; <?= date('Y') ?> &bull; Crafted with</span>
-                <span class="text-rose-500 animate-pulse">❤️</span>
-                <span>by <strong class="text-blue-400 font-bold hover:underline">Shawir</strong></span>
+                <span>&copy; <?= date('Y') ?> &bull; Developed by <strong class="text-blue-400 font-bold hover:underline">Shawir</strong>. All Rights Reserved.</span>
             </div>
         </div>
     </div>

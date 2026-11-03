@@ -4,8 +4,10 @@
                     <span>&copy; <?= date('Y') ?> <strong class="text-slate-700 dark:text-slate-300 font-semibold">MikroTik VPN & NAT Manager</strong>.</span>
                     <span class="hidden sm:inline">&bull;</span>
                     <span class="flex items-center gap-1">
-                        Crafted with <span class="text-rose-500 animate-pulse">❤️</span> by <strong class="text-blue-600 dark:text-blue-400 font-bold hover:underline cursor-pointer">Shawir</strong>
+                        Developed by <strong class="text-blue-600 dark:text-blue-400 font-bold hover:underline cursor-pointer">Shawir</strong>
                     </span>
+                    <span class="hidden sm:inline">&bull;</span>
+                    <span>All Rights Reserved.</span>
                 </div>
             </footer>
         </main>
