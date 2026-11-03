@@ -5,11 +5,10 @@ require_once __DIR__ . '/includes/MikhmonManager.php';
 
 $instances = MikhmonManager::getInstances((int)$currentUser['id'], $currentUser['username']);
 
-// Ambil domain atau host untuk generate full URL
-$configuredDomain = trim($routerProfile['domain_name'] ?? '');
+// URL Host untuk aplikasi Mikhmon (Selalu gunakan domain web panel saat ini)
 $serverHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
-$baseHost = !empty($configuredDomain) ? $configuredDomain : $serverHost;
 $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$baseHost = $serverHost;
 
 // Cek apakah master template tersedia
 $templateReady = is_dir(MikhmonManager::getTemplateDir());
@@ -314,6 +313,7 @@ $templateReady = is_dir(MikhmonManager::getTemplateDir());
                     <div>
                         <label class="block text-slate-600 dark:text-slate-300 font-semibold mb-1">Port API *</label>
                         <input type="number" name="router_port" id="addRouterPort" value="<?= htmlspecialchars($routerProfile['api_port'] ?? '8728') ?>" required class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-100 font-mono focus:outline-none focus:border-blue-500">
+                        <span class="text-[9px] text-slate-400 block mt-0.5">Default 8728 (Bukan 80 WebFig)</span>
                     </div>
                 </div>
 
@@ -396,6 +396,7 @@ $templateReady = is_dir(MikhmonManager::getTemplateDir());
                 <div>
                     <label class="block text-slate-600 dark:text-slate-300 font-semibold mb-1">Port API *</label>
                     <input type="number" name="router_port" id="editMikhmonPort" required class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-100 font-mono focus:outline-none focus:border-blue-500">
+                    <span class="text-[9px] text-slate-400 block mt-0.5">Default 8728 (Bukan 80 WebFig)</span>
                 </div>
             </div>
 

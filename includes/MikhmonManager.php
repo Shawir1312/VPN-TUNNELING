@@ -78,25 +78,14 @@ class MikhmonManager {
     ): string {
         $mikhmonPassEnc = self::encryptMikhmon($mikhmonPass);
         $routerPassEnc = self::encryptMikhmon($routerPass);
-        $ipHostWithPort = "{$routerHost}:{$routerPort}";
+        $ipHostWithPort = ($routerPort && (int)$routerPort !== 8728) ? "{$routerHost}:{$routerPort}" : $routerHost;
         $cleanSession = preg_replace('/[^a-zA-Z0-9_-]/', '', $sessionName) ?: 'hotspot';
 
+        // Format HARUS persis 1 baris per router agar parser sessions.php Mikhmon tidak mengira setiap baris sebagai router terpisah
         $out = "<?php \n";
         $out .= "if(substr(\$_SERVER[\"REQUEST_URI\"], -10) == \"config.php\"){header(\"Location:./\");}; \n";
         $out .= "\$data['mikhmon'] = array ('1'=>'mikhmon<|<{$mikhmonUser}','{$mikhmonUser}>|>{$mikhmonPassEnc}');\n";
-        $out .= "\$data['{$cleanSession}'] = array (\n";
-        $out .= "  '1'=>'{$cleanSession}!{$ipHostWithPort}',\n";
-        $out .= "  '{$cleanSession}@|@{$routerUser}',\n";
-        $out .= "  '{$cleanSession}#|#{$routerPassEnc}',\n";
-        $out .= "  '{$cleanSession}%{$hotspotName}',\n";
-        $out .= "  '{$cleanSession}^{$dnsName}',\n";
-        $out .= "  '{$cleanSession}&{$currency}',\n";
-        $out .= "  '{$cleanSession}*10',\n";
-        $out .= "  '{$cleanSession}(1',\n";
-        $out .= "  '{$cleanSession})',\n";
-        $out .= "  '{$cleanSession}=10',\n";
-        $out .= "  '{$cleanSession}@!@disable'\n";
-        $out .= ");\n";
+        $out .= "\$data['{$cleanSession}'] = array ('1'=>'{$cleanSession}!{$ipHostWithPort}','{$cleanSession}@|@{$routerUser}','{$cleanSession}#|#{$routerPassEnc}','{$cleanSession}%{$hotspotName}','{$cleanSession}^{$dnsName}','{$cleanSession}&{$currency}','{$cleanSession}*10','{$cleanSession}(1','{$cleanSession})','{$cleanSession}=10','{$cleanSession}@!@disable');\n";
 
         return $out;
     }
@@ -169,7 +158,7 @@ class MikhmonManager {
     }
 
     /**
-     * Otomatis sinkronkan file patch kompatibilitas PHP 8 ke instance yang sudah ada di disk
+     * Otomatis sinkronkan file patch kompatibilitas PHP 8 & bersihkan config ke instance yang sudah ada di disk
      */
     public static function autoRepairInstances(): void {
         try {
@@ -177,7 +166,7 @@ class MikhmonManager {
             if (!is_dir($templateDir)) return;
 
             $db = Database::getConnection();
-            $stmt = $db->query("SELECT slug FROM mikhmon_instances");
+            $stmt = $db->query("SELECT * FROM mikhmon_instances");
             $instances = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
 
             $coreFiles = [
@@ -192,7 +181,7 @@ class MikhmonManager {
                 $instDir = dirname(__DIR__) . '/' . $slug;
                 if (!is_dir($instDir)) continue;
 
-                // Salin file core engine terbaru
+                // 1. Salin file core engine terbaru
                 foreach ($coreFiles as $relPath) {
                     $src = $templateDir . '/' . $relPath;
                     $dst = $instDir . '/' . $relPath;
@@ -202,14 +191,25 @@ class MikhmonManager {
                     }
                 }
 
-                // Perbaiki (ether1 -> (1 pada include/config.php untuk kompatibilitas PHP 8
+                // 2. Bersihkan & rapikan include/config.php menjadi format 1 baris standar
+                // agar parser sessions.php tidak menganggap setiap baris array sebagai router baru
                 $cfgPath = $instDir . '/include/config.php';
                 if (file_exists($cfgPath)) {
-                    $content = file_get_contents($cfgPath);
-                    if (strpos($content, '(ether1') !== false) {
-                        $content = str_replace('(ether1', '(1', $content);
-                        @file_put_contents($cfgPath, $content);
-                    }
+                    $routerPass = Helpers::decrypt($inst['router_pass_encrypted'] ?? '');
+                    $mikhmonPass = Helpers::decrypt($inst['mikhmon_pass_encrypted'] ?? '');
+                    $cleanConfig = self::buildConfigFile(
+                        $inst['mikhmon_user'] ?: 'admin',
+                        $mikhmonPass ?: '1234',
+                        $slug,
+                        $inst['router_host'],
+                        (int)$inst['router_port'],
+                        $inst['router_user'],
+                        $routerPass,
+                        $inst['hotspot_name'] ?: $inst['app_name'],
+                        $inst['dns_name'] ?? '',
+                        $inst['currency'] ?? 'Rp'
+                    );
+                    @file_put_contents($cfgPath, $cleanConfig);
                 }
             }
         } catch (\Throwable $e) {
