@@ -989,40 +989,64 @@ if (searchInput) {
 // Form Tambah User
 document.getElementById('formAddSecret').addEventListener('submit', async (e) => {
     e.preventDefault();
+    showLoading('Membuat Akun VPN...', 'Mendaftarkan secret ke MikroTik PPP...');
     const formData = new FormData(e.target);
     formData.append('action', 'add_secret');
     try {
         const res = await fetch('api/vpn_action.php', { method: 'POST', body: formData });
         const json = await res.json();
-        alert(json.message);
-        if (json.success) location.reload();
-    } catch (err) { alert('Gagal mengirim data'); }
+        if (json.success) {
+            location.reload();
+        } else {
+            hideLoading();
+            alert(json.message);
+        }
+    } catch (err) {
+        hideLoading();
+        alert('Gagal mengirim data');
+    }
 });
 
 // Form Tambah Pool
 document.getElementById('formAddPool').addEventListener('submit', async (e) => {
     e.preventDefault();
+    showLoading('Membuat IP Pool...', 'Mendaftarkan range IP ke MikroTik...');
     const formData = new FormData(e.target);
     formData.append('action', 'add_pool');
     try {
         const res = await fetch('api/vpn_action.php', { method: 'POST', body: formData });
         const json = await res.json();
-        alert(json.message);
-        if (json.success) location.reload();
-    } catch (err) { alert('Gagal membuat pool'); }
+        if (json.success) {
+            location.reload();
+        } else {
+            hideLoading();
+            alert(json.message);
+        }
+    } catch (err) {
+        hideLoading();
+        alert('Gagal membuat pool');
+    }
 });
 
 // Form Tambah Profile
 document.getElementById('formAddProfile').addEventListener('submit', async (e) => {
     e.preventDefault();
+    showLoading('Membuat PPP Profile...', 'Menyimpan profile ke MikroTik...');
     const formData = new FormData(e.target);
     formData.append('action', 'add_profile');
     try {
         const res = await fetch('api/vpn_action.php', { method: 'POST', body: formData });
         const json = await res.json();
-        alert(json.message);
-        if (json.success) location.reload();
-    } catch (err) { alert('Gagal membuat profile'); }
+        if (json.success) {
+            location.reload();
+        } else {
+            hideLoading();
+            alert(json.message);
+        }
+    } catch (err) {
+        hideLoading();
+        alert('Gagal membuat profile');
+    }
 });
 
 // Buka Edit Modal
@@ -1041,84 +1065,143 @@ function openEditSecretModal(item) {
 // Form Edit User
 document.getElementById('formEditSecret').addEventListener('submit', async (e) => {
     e.preventDefault();
+    showLoading('Memperbarui User VPN...', 'Sinkronisasi perubahan ke MikroTik...');
     const formData = new FormData(e.target);
     formData.append('action', 'edit_secret');
     try {
         const res = await fetch('api/vpn_action.php', { method: 'POST', body: formData });
         const json = await res.json();
-        alert(json.message);
-        if (json.success) location.reload();
-    } catch (err) { alert('Gagal memperbarui user'); }
+        if (json.success) {
+            location.reload();
+        } else {
+            hideLoading();
+            alert(json.message);
+        }
+    } catch (err) {
+        hideLoading();
+        alert('Gagal memperbarui user');
+    }
 });
 
 // Toggle Status Aktif / Mati
 async function toggleSecretStatus(id, disabled) {
+    showLoading('Mengubah Status User...', 'Sinkronisasi dengan MikroTik...');
     const formData = new FormData();
     formData.append('action', 'toggle_secret');
     formData.append('id', id);
     formData.append('disabled', disabled);
 
-    const res = await fetch('api/vpn_action.php', { method: 'POST', body: formData });
-    const json = await res.json();
-    if (json.success) location.reload();
-    else alert(json.message);
+    try {
+        const res = await fetch('api/vpn_action.php', { method: 'POST', body: formData });
+        const json = await res.json();
+        if (json.success) {
+            location.reload();
+        } else {
+            hideLoading();
+            alert(json.message);
+        }
+    } catch (err) {
+        hideLoading();
+        alert('Gagal mengubah status user');
+    }
 }
 
 // Hapus User
 async function deleteSecret(id, name) {
     if (!confirm(`Hapus user '${name}'?`)) return;
+    showLoading('Menghapus User VPN...', 'Menghapus secret dari MikroTik...');
     const formData = new FormData();
     formData.append('action', 'delete_secret');
     formData.append('id', id);
 
-    const res = await fetch('api/vpn_action.php', { method: 'POST', body: formData });
-    const json = await res.json();
-    alert(json.message);
-    if (json.success) location.reload();
+    try {
+        const res = await fetch('api/vpn_action.php', { method: 'POST', body: formData });
+        const json = await res.json();
+        if (json.success) {
+            location.reload();
+        } else {
+            hideLoading();
+            alert(json.message);
+        }
+    } catch (err) {
+        hideLoading();
+        alert('Gagal menghapus user');
+    }
 }
 
 // Hapus Pool
 async function deletePool(id, name) {
     if (!confirm(`Hapus IP Pool '${name}'?`)) return;
+    showLoading('Menghapus IP Pool...', 'Menghapus pool dari MikroTik...');
     const formData = new FormData();
     formData.append('action', 'delete_pool');
     formData.append('id', id);
 
-    const res = await fetch('api/vpn_action.php', { method: 'POST', body: formData });
-    const json = await res.json();
-    alert(json.message);
-    if (json.success) location.reload();
+    try {
+        const res = await fetch('api/vpn_action.php', { method: 'POST', body: formData });
+        const json = await res.json();
+        if (json.success) {
+            location.reload();
+        } else {
+            hideLoading();
+            alert(json.message);
+        }
+    } catch (err) {
+        hideLoading();
+        alert('Gagal menghapus pool');
+    }
 }
 
 // Hapus Profile
 async function deleteProfile(id, name) {
     if (!confirm(`Hapus PPP Profile '${name}'?`)) return;
+    showLoading('Menghapus PPP Profile...', 'Menghapus profile dari MikroTik...');
     const formData = new FormData();
     formData.append('action', 'delete_profile');
     formData.append('id', id);
 
-    const res = await fetch('api/vpn_action.php', { method: 'POST', body: formData });
-    const json = await res.json();
-    alert(json.message);
-    if (json.success) location.reload();
+    try {
+        const res = await fetch('api/vpn_action.php', { method: 'POST', body: formData });
+        const json = await res.json();
+        if (json.success) {
+            location.reload();
+        } else {
+            hideLoading();
+            alert(json.message);
+        }
+    } catch (err) {
+        hideLoading();
+        alert('Gagal menghapus profile');
+    }
 }
 
 // Kick Active Session
 async function kickSession(id, name) {
     if (!confirm(`Putus paksa koneksi user '${name}' sekarang?`)) return;
+    showLoading('Memutus Sesi VPN...', 'Memutuskan koneksi aktif di MikroTik...');
     const formData = new FormData();
     formData.append('action', 'kick_active');
     formData.append('id', id);
     formData.append('name', name);
 
-    const res = await fetch('api/vpn_action.php', { method: 'POST', body: formData });
-    const json = await res.json();
-    alert(json.message);
-    if (json.success) location.reload();
+    try {
+        const res = await fetch('api/vpn_action.php', { method: 'POST', body: formData });
+        const json = await res.json();
+        if (json.success) {
+            location.reload();
+        } else {
+            hideLoading();
+            alert(json.message);
+        }
+    } catch (err) {
+        hideLoading();
+        alert('Gagal memutus sesi');
+    }
 }
 
 // Save Server Settings (Super Admin)
 async function saveServerSettings() {
+    showLoading('Menyimpan Pengaturan Server...', 'Menerapkan server SSTP & L2TP di MikroTik...');
     const formData = new FormData();
     formData.append('action', 'save_server_settings');
     formData.append('sstp_enabled', document.getElementById('checkSstpEnabled').checked ? '1' : '0');
@@ -1127,10 +1210,19 @@ async function saveServerSettings() {
     formData.append('l2tp_use_ipsec', document.getElementById('selectL2tpUseIpsec').value);
     formData.append('l2tp_ipsec_secret', document.getElementById('inputL2tpSecret').value);
 
-    const res = await fetch('api/vpn_action.php', { method: 'POST', body: formData });
-    const json = await res.json();
-    alert(json.message);
-    if (json.success) location.reload();
+    try {
+        const res = await fetch('api/vpn_action.php', { method: 'POST', body: formData });
+        const json = await res.json();
+        if (json.success) {
+            location.reload();
+        } else {
+            hideLoading();
+            alert(json.message);
+        }
+    } catch (err) {
+        hideLoading();
+        alert('Gagal menyimpan pengaturan server');
+    }
 }
 </script>
 

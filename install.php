@@ -132,8 +132,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $allPass) {
             }
         }
     </script>
+    <style>
+        @keyframes spin-reverse {
+            from { transform: rotate(360deg); }
+            to { transform: rotate(0deg); }
+        }
+        .animate-spin-reverse {
+            animation: spin-reverse 1.2s linear infinite;
+        }
+        @keyframes glow-pulse {
+            0%, 100% { opacity: 0.35; transform: scale(0.92); }
+            50% { opacity: 0.75; transform: scale(1.08); }
+        }
+        .animate-glow-pulse {
+            animation: glow-pulse 2s ease-in-out infinite;
+        }
+    </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-4">
+
+    <!-- Top Glowing Progress Bar -->
+    <div id="topProgressBar" class="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-blue-500 via-cyan-400 to-indigo-500 z-[10000] opacity-0 transition-all duration-300 pointer-events-none shadow-[0_0_12px_rgba(59,130,246,0.85)]" style="width: 0%;"></div>
+
+    <!-- Futuristic Glassmorphism Loading Overlay -->
+    <div id="appLoadingOverlay" class="fixed inset-0 z-[9999] bg-slate-950/75 backdrop-blur-md hidden flex flex-col items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none">
+        <div class="relative flex items-center justify-center mb-6">
+            <div class="absolute -inset-8 bg-gradient-to-tr from-blue-600/35 via-cyan-500/30 to-indigo-600/35 rounded-full blur-2xl animate-glow-pulse pointer-events-none"></div>
+            <div class="w-20 h-20 rounded-full border-[3px] border-transparent border-t-blue-500 border-r-cyan-400 animate-spin"></div>
+            <div class="absolute w-14 h-14 rounded-full border-[2.5px] border-transparent border-b-indigo-500 border-l-purple-500 animate-spin-reverse"></div>
+            <div class="absolute w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/50 animate-pulse">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+            </div>
+        </div>
+        <div class="text-center space-y-1.5 px-4 max-w-sm">
+            <h4 class="text-base font-bold text-white tracking-wide flex items-center justify-center gap-1.5">
+                <span>Memproses Instalasi</span>
+                <span class="inline-flex gap-1 ml-0.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce" style="animation-delay: 0ms"></span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce" style="animation-delay: 150ms"></span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style="animation-delay: 300ms"></span>
+                </span>
+            </h4>
+            <p class="text-xs text-blue-200/80 font-mono">Menguji koneksi & menginisialisasi database...</p>
+        </div>
+    </div>
     <div class="max-w-xl w-full bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl overflow-hidden p-6 sm:p-8">
         
         <!-- Header -->
@@ -268,9 +310,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $allPass) {
 
         <?php endif; ?>
 
-        <div class="mt-6 text-center text-xs text-slate-500">
-            MikroTik SSTP, L2TP & Dst-NAT Manager &bull; v1.4.0
+        <div class="mt-6 text-center text-xs text-slate-500 space-y-1.5">
+            <div>MikroTik SSTP, L2TP &amp; Dst-NAT Manager &bull; v1.4.0</div>
+            <div class="pt-2 border-t border-slate-700/60 flex items-center justify-center gap-1 font-medium text-slate-400">
+                <span>&copy; <?= date('Y') ?> &bull; Crafted with</span>
+                <span class="text-rose-500 animate-pulse">❤️</span>
+                <span>by <strong class="text-blue-400 font-bold hover:underline">Shawir</strong></span>
+            </div>
         </div>
     </div>
+
+    <script>
+        const form = document.querySelector('form');
+        if (form) {
+            form.addEventListener('submit', () => {
+                const bar = document.getElementById('topProgressBar');
+                const overlay = document.getElementById('appLoadingOverlay');
+                if (bar) {
+                    bar.style.opacity = '1';
+                    bar.style.width = '75%';
+                }
+                if (overlay) {
+                    overlay.classList.remove('hidden', 'pointer-events-none');
+                    requestAnimationFrame(() => {
+                        overlay.classList.remove('opacity-0');
+                        overlay.classList.add('opacity-100');
+                    });
+                }
+            });
+        }
+    </script>
 </body>
 </html>

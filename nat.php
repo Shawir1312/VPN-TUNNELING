@@ -592,6 +592,7 @@ function autoFixDstAddress(rule) {
     if (!confirm(`Perbaiki rule port ${port}?\nDst Address akan diubah dari "${oldDst}" menjadi IP Publik "${DETECTED_PUBLIC_IP}".`)) {
         return;
     }
+    showLoading('Memperbaiki Dst Address...', `Menerapkan IP Publik ${DETECTED_PUBLIC_IP} ke MikroTik...`);
     const fd = new FormData();
     fd.append('action', 'edit_nat');
     fd.append('id', rule['.id']);
@@ -611,13 +612,16 @@ function autoFixDstAddress(rule) {
     .then(r => r.json())
     .then(res => {
         if (res.success) {
-            alert(`✅ Sukses! Rule port ${port} berhasil diubah ke IP Publik (${DETECTED_PUBLIC_IP}).\nSekarang siap diakses dari internet luar.`);
             location.reload();
         } else {
+            hideLoading();
             alert('❌ Gagal memperbarui: ' + res.message);
         }
     })
-    .catch(() => alert('Terjadi gangguan jaringan saat menghubungi API'));
+    .catch(() => {
+        hideLoading();
+        alert('Terjadi gangguan jaringan saat menghubungi API');
+    });
 }
 
 // Buka Modal Edit Rule
@@ -655,20 +659,28 @@ document.getElementById('formAddNat').addEventListener('submit', async (e) => {
     const alertMsg = document.getElementById('modalConflictMessage');
     alertBox.classList.add('hidden');
 
+    showLoading('Menambahkan Rule Dst-NAT...', 'Menyimpan konfigurasi port forwarding ke MikroTik...');
+
     try {
         const res = await fetch('api/nat_action.php', { method: 'POST', body: formData });
         const json = await res.json();
 
         if (res.status === 409 || json.conflict) {
+            hideLoading();
             alertBox.classList.remove('hidden');
             alertMsg.innerHTML = json.message;
             lucide.createIcons();
             return;
         }
 
-        alert(json.message);
-        if (json.success) location.reload();
+        if (json.success) {
+            location.reload();
+        } else {
+            hideLoading();
+            alert(json.message);
+        }
     } catch (err) {
+        hideLoading();
         alert('Gagal mengirim data rule');
     }
 });
@@ -683,49 +695,77 @@ document.getElementById('formEditNat').addEventListener('submit', async (e) => {
     const alertMsg = document.getElementById('modalEditConflictMessage');
     alertBox.classList.add('hidden');
 
+    showLoading('Memperbarui Rule Dst-NAT...', 'Menyimpan perubahan ke MikroTik...');
+
     try {
         const res = await fetch('api/nat_action.php', { method: 'POST', body: formData });
         const json = await res.json();
 
         if (res.status === 409 || json.conflict) {
+            hideLoading();
             alertBox.classList.remove('hidden');
             alertMsg.innerHTML = json.message;
             lucide.createIcons();
             return;
         }
 
-        alert(json.message);
-        if (json.success) location.reload();
+        if (json.success) {
+            location.reload();
+        } else {
+            hideLoading();
+            alert(json.message);
+        }
     } catch (err) {
+        hideLoading();
         alert('Gagal memperbarui rule');
     }
 });
 
 // Toggle Status NAT
 async function toggleNatStatus(id, disabled) {
+    showLoading('Mengubah Status Rule...', 'Sinkronisasi status dengan MikroTik...');
     const formData = new FormData();
     formData.append('action', 'toggle_nat');
     formData.append('id', id);
     formData.append('disabled', disabled);
 
-    const res = await fetch('api/nat_action.php', { method: 'POST', body: formData });
-    const json = await res.json();
-    if (json.success) location.reload();
-    else alert(json.message);
+    try {
+        const res = await fetch('api/nat_action.php', { method: 'POST', body: formData });
+        const json = await res.json();
+        if (json.success) {
+            location.reload();
+        } else {
+            hideLoading();
+            alert(json.message);
+        }
+    } catch (err) {
+        hideLoading();
+        alert('Gagal mengubah status');
+    }
 }
 
 // Hapus Rule NAT
 async function deleteNat(id, port) {
     if (!confirm(`Hapus port forwarding untuk port '${port}'?`)) return;
 
+    showLoading('Menghapus Rule Dst-NAT...', 'Menghapus rule dari firewall MikroTik...');
     const formData = new FormData();
     formData.append('action', 'delete_nat');
     formData.append('id', id);
 
-    const res = await fetch('api/nat_action.php', { method: 'POST', body: formData });
-    const json = await res.json();
-    alert(json.message);
-    if (json.success) location.reload();
+    try {
+        const res = await fetch('api/nat_action.php', { method: 'POST', body: formData });
+        const json = await res.json();
+        if (json.success) {
+            location.reload();
+        } else {
+            hideLoading();
+            alert(json.message);
+        }
+    } catch (err) {
+        hideLoading();
+        alert('Gagal menghapus rule');
+    }
 }
 
 // Search Filter

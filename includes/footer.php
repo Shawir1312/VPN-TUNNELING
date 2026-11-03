@@ -1,3 +1,13 @@
+            <!-- Modern Footer with Copyright Shawir -->
+            <footer class="mt-12 pt-6 pb-4 text-center text-xs text-slate-400 dark:text-slate-500 border-t border-slate-200/70 dark:border-slate-800/80">
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-1.5 font-medium">
+                    <span>&copy; <?= date('Y') ?> <strong class="text-slate-700 dark:text-slate-300 font-semibold">MikroTik VPN & NAT Manager</strong>.</span>
+                    <span class="hidden sm:inline">&bull;</span>
+                    <span class="flex items-center gap-1">
+                        Crafted with <span class="text-rose-500 animate-pulse">❤️</span> by <strong class="text-blue-600 dark:text-blue-400 font-bold hover:underline cursor-pointer">Shawir</strong>
+                    </span>
+                </div>
+            </footer>
         </main>
     </div>
 
@@ -90,6 +100,86 @@
                 }, 300);
             });
         }
+
+        // ==============================================================
+        // MODERN LOADING CONTROLLER (TOP PROGRESS & GLASS OVERLAY)
+        // ==============================================================
+        let progressInterval = null;
+
+        window.startTopProgress = function() {
+            const bar = document.getElementById('topProgressBar');
+            if (!bar) return;
+            clearInterval(progressInterval);
+            bar.style.transition = 'width 0.25s ease, opacity 0.2s ease';
+            bar.style.opacity = '1';
+            bar.style.width = '25%';
+            
+            let current = 25;
+            progressInterval = setInterval(() => {
+                if (current < 85) {
+                    current += Math.random() * 12 + 5;
+                    bar.style.width = Math.min(current, 88) + '%';
+                }
+            }, 200);
+        };
+
+        window.finishTopProgress = function() {
+            const bar = document.getElementById('topProgressBar');
+            if (!bar) return;
+            clearInterval(progressInterval);
+            bar.style.width = '100%';
+            setTimeout(() => {
+                bar.style.opacity = '0';
+                setTimeout(() => {
+                    bar.style.width = '0%';
+                }, 300);
+            }, 250);
+        };
+
+        window.showLoading = function(title = 'Memproses Data', subtitle = 'Sinkronisasi dengan MikroTik RouterOS...') {
+            const overlay = document.getElementById('appLoadingOverlay');
+            if (!overlay) return;
+            const titleEl = document.getElementById('loadingTitleText');
+            const subEl = document.getElementById('loadingSubtitle');
+            if (titleEl) titleEl.innerText = title;
+            if (subEl) subEl.innerText = subtitle;
+            
+            overlay.classList.remove('hidden', 'pointer-events-none');
+            requestAnimationFrame(() => {
+                overlay.classList.remove('opacity-0');
+                overlay.classList.add('opacity-100');
+            });
+            window.startTopProgress();
+            if (window.lucide) lucide.createIcons();
+        };
+
+        window.hideLoading = function() {
+            const overlay = document.getElementById('appLoadingOverlay');
+            if (!overlay) return;
+            overlay.classList.remove('opacity-100');
+            overlay.classList.add('opacity-0');
+            setTimeout(() => {
+                overlay.classList.add('hidden', 'pointer-events-none');
+            }, 300);
+            window.finishTopProgress();
+        };
+
+        // Otomatis aktifkan loading saat submit form standar (kecuali bertanda data-no-loading)
+        document.addEventListener('submit', (e) => {
+            const form = e.target;
+            if (!form || form.hasAttribute('data-no-loading')) return;
+            window.showLoading('Menyimpan Data...', 'Mengirim perintah ke MikroTik...');
+        });
+
+        // Top progress bar saat klik link navigasi
+        document.querySelectorAll('a[href]:not([target="_blank"]):not([href^="#"]):not([href^="javascript:"])').forEach(link => {
+            link.addEventListener('click', () => {
+                const href = link.getAttribute('href');
+                if (href && !href.startsWith('#') && !href.startsWith('javascript:')) {
+                    window.startTopProgress();
+                }
+            });
+        });
     </script>
 </body>
 </html>

@@ -36,6 +36,22 @@ $routerProfile = Auth::getRouterProfile();
         html.transitioning, html.transitioning * {
             transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease !important;
         }
+
+        /* Modern Loading Keyframes */
+        @keyframes spin-reverse {
+            from { transform: rotate(360deg); }
+            to { transform: rotate(0deg); }
+        }
+        .animate-spin-reverse {
+            animation: spin-reverse 1.2s linear infinite;
+        }
+        @keyframes glow-pulse {
+            0%, 100% { opacity: 0.35; transform: scale(0.92); }
+            50% { opacity: 0.75; transform: scale(1.08); }
+        }
+        .animate-glow-pulse {
+            animation: glow-pulse 2s ease-in-out infinite;
+        }
     </style>
     <script>
         // Inisialisasi tema sebelum render agar tidak berkedip putih
@@ -48,6 +64,37 @@ $routerProfile = Auth::getRouterProfile();
     </script>
 </head>
 <body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col antialiased">
+
+    <!-- Modern Top Glowing Progress Bar -->
+    <div id="topProgressBar" class="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-blue-500 via-cyan-400 to-indigo-500 z-[10000] opacity-0 transition-all duration-300 pointer-events-none shadow-[0_0_12px_rgba(59,130,246,0.85)]" style="width: 0%;"></div>
+
+    <!-- Futuristic Glassmorphism Loading Overlay -->
+    <div id="appLoadingOverlay" class="fixed inset-0 z-[9999] bg-slate-950/75 backdrop-blur-md hidden flex-col items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none">
+        <div class="relative flex items-center justify-center mb-6">
+            <!-- Ambient Glow Blob -->
+            <div class="absolute -inset-8 bg-gradient-to-tr from-blue-600/35 via-cyan-500/30 to-indigo-600/35 rounded-full blur-2xl animate-glow-pulse pointer-events-none"></div>
+            <!-- Outer Spinning Gradient Ring -->
+            <div class="w-20 h-20 rounded-full border-[3px] border-transparent border-t-blue-500 border-r-cyan-400 animate-spin"></div>
+            <!-- Middle Reverse-Spinning Ring -->
+            <div class="absolute w-14 h-14 rounded-full border-[2.5px] border-transparent border-b-indigo-500 border-l-purple-500 animate-spin-reverse"></div>
+            <!-- Center Shield Pulse -->
+            <div class="absolute w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/50 animate-pulse">
+                <i data-lucide="shield" class="w-5 h-5"></i>
+            </div>
+        </div>
+        
+        <div class="text-center space-y-1.5 px-4 max-w-sm">
+            <h4 id="loadingTitle" class="text-base font-bold text-white tracking-wide flex items-center justify-center gap-1.5">
+                <span id="loadingTitleText">Memproses Data</span>
+                <span class="inline-flex gap-1 ml-0.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce" style="animation-delay: 0ms"></span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce" style="animation-delay: 150ms"></span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style="animation-delay: 300ms"></span>
+                </span>
+            </h4>
+            <p id="loadingSubtitle" class="text-xs text-blue-200/80 font-mono">Sinkronisasi dengan MikroTik RouterOS...</p>
+        </div>
+    </div>
 
     <!-- Top Navigation Bar -->
     <header class="sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur border-b border-slate-200 dark:border-slate-800 px-4 py-3">
@@ -203,5 +250,5 @@ $routerProfile = Auth::getRouterProfile();
         </aside>
 
         <!-- Main Content Wrapper -->
-        <main class="flex-1 p-4 sm:p-6 lg:p-8 min-w-0 pb-20 lg:pb-8">
+        <main class="flex-1 p-4 sm:p-6 lg:p-8 min-w-0 pb-20 lg:pb-8 flex flex-col justify-between">
 
