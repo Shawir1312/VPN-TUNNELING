@@ -43,6 +43,30 @@ class Database {
                     $db->exec("ALTER TABLE router_profiles ADD COLUMN domain_name TEXT DEFAULT '';");
                 }
             }
+
+            // Migrasi tabel mikhmon_instances
+            $db->exec("
+                CREATE TABLE IF NOT EXISTS mikhmon_instances (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    admin_id INTEGER NOT NULL,
+                    owner_username TEXT NOT NULL,
+                    app_name TEXT NOT NULL,
+                    slug TEXT NOT NULL UNIQUE,
+                    router_host TEXT NOT NULL,
+                    router_port INTEGER NOT NULL DEFAULT 8728,
+                    router_user TEXT NOT NULL,
+                    router_pass_encrypted TEXT NOT NULL,
+                    mikhmon_user TEXT NOT NULL DEFAULT 'admin',
+                    mikhmon_pass_encrypted TEXT NOT NULL DEFAULT '1234',
+                    hotspot_name TEXT DEFAULT '',
+                    dns_name TEXT DEFAULT '',
+                    currency TEXT DEFAULT 'Rp',
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(admin_id) REFERENCES admin_users(id) ON DELETE CASCADE
+                );
+            ");
         } catch (Exception $e) {
             // Abaikan jika migrasi sudah berjalan
         }
@@ -88,6 +112,27 @@ class Database {
             ip_address TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(admin_id) REFERENCES admin_users(id) ON DELETE SET NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS mikhmon_instances (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            admin_id INTEGER NOT NULL,
+            owner_username TEXT NOT NULL,
+            app_name TEXT NOT NULL,
+            slug TEXT NOT NULL UNIQUE,
+            router_host TEXT NOT NULL,
+            router_port INTEGER NOT NULL DEFAULT 8728,
+            router_user TEXT NOT NULL,
+            router_pass_encrypted TEXT NOT NULL,
+            mikhmon_user TEXT NOT NULL DEFAULT 'admin',
+            mikhmon_pass_encrypted TEXT NOT NULL DEFAULT '1234',
+            hotspot_name TEXT DEFAULT '',
+            dns_name TEXT DEFAULT '',
+            currency TEXT DEFAULT 'Rp',
+            is_active INTEGER NOT NULL DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(admin_id) REFERENCES admin_users(id) ON DELETE CASCADE
         );
         ";
         $db->exec($sql);

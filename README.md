@@ -22,7 +22,13 @@ Aplikasi web manajemen VPN (SSTP & L2TP/IPsec) dan Port Forwarding (Dst-NAT) ber
    - **Alamat Remote Publik Siap Pakai**: Menampilkan endpoint lengkap (`<domain/ip_publik>:<port>`) dengan tombol 1-klik salin (*Copy*).
    - **Edit Penuh**: Seluruh parameter rule Dst-NAT (Port publik, IP target, Port internal, Protokol, Keterangan) dapat diedit kapan saja dengan proteksi deteksi bentrok port.
 
-3. **Generator Script MikroTik (Tinggal Paste)**:
+3. **Mikhmon Online Multi-Tenant Generator**:
+   - Setiap admin dapat membuat dan mengelola aplikasi **Mikhmon V3** mandiri dengan URL kustom (misal: `domain.com/alanmikhon` atau `domain.com/admin1mikh`).
+   - Masing-masing aplikasi terisolasi 100%: kredensial login, sesi router, logo voucher, dan database voucher terpisah antar admin.
+   - Terintegrasi langsung dengan akun VPN untuk remote router hotspot klien.
+   - Fitur 1-klik salin URL, 1-klik buka aplikasi, edit parameter, dan hapus instance.
+
+4. **Generator Script MikroTik (Tinggal Paste)**:
    - **Script Server**: 1-Klik Salin script inisialisasi server (Pool, Profile, Server SSTP/L2TP, Firewall Allow, NAT Masquerade).
    - **Script Klien**: Tombol *Copy Script* per akun VPN dengan pilihan koneksi via **Domain/DDNS** atau **IP Publik MikroTik**.
 
@@ -90,18 +96,22 @@ VPN-TUNNELING/
 │   ├── RouterOS.php            # Driver binary socket MikroTik API (Port 8728)
 │   ├── Auth.php                # Manajemen sesi, login, & RBAC
 │   ├── Helpers.php             # Tagging kepemilikan [owner:xxx] & enkripsi AES-256
+│   ├── MikhmonManager.php      # Engine Multi-Tenant Mikhmon V3 Generator
 │   ├── header.php              # Header & navigasi responsif (Mobile Drawer & Sidebar)
 │   └── footer.php              # Footer, Chart.js, & script tema
 ├── api/
 │   ├── traffic.php             # Endpoint polling real-time CPU, RAM, & WAN Speed
 │   ├── vpn_action.php          # CRUD PPP Secret, IP Pool, PPP Profile, & Server setting
 │   ├── nat_action.php          # CRUD & Edit Dst-NAT + validasi bentrok port antar-admin
+│   ├── mikhmon_action.php      # CRUD & Generator instance aplikasi Mikhmon
 │   └── theme_action.php        # Sinkronisasi preferensi tema ke database
+├── mikhmonv3-master/           # Master Template Engine Mikhmon V3
 ├── install.php                 # Web Setup Wizard awal
 ├── index.php                   # Halaman Login
 ├── dashboard.php               # Dashboard monitoring real-time & grafik internet
 ├── vpn.php                     # Kelola VPN SSTP, L2TP, IP Pool, Profile & Script Generator
 ├── nat.php                     # Kelola Dst-NAT (Random port, template port, edit rule)
+├── mikhmon.php                 # Kelola Aplikasi Mikhmon Online per-admin
 ├── admins.php                  # Kelola Sub-Admin & Reset Password (Super Admin)
 ├── settings.php                # Pengaturan profil & IP/Domain MikroTik
 ├── logout.php                  # Keluar sesi

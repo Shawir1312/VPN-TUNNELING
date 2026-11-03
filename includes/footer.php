@@ -27,6 +27,10 @@
             <i data-lucide="network" class="w-5 h-5 mb-0.5"></i>
             <span>Dst-NAT</span>
         </a>
+        <a href="mikhmon.php" class="flex flex-col items-center py-1 px-3 text-xs <?= $currentPage === 'mikhmon.php' ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-slate-400' ?>">
+            <i data-lucide="flame" class="w-5 h-5 mb-0.5 text-amber-500"></i>
+            <span>Mikhmon</span>
+        </a>
         <?php if (($currentUser['role'] ?? '') === 'superadmin'): ?>
             <a href="admins.php" class="flex flex-col items-center py-1 px-3 text-xs <?= $currentPage === 'admins.php' ? 'text-blue-600 dark:text-blue-400 font-semibold' : 'text-slate-500 dark:text-slate-400' ?>">
                 <i data-lucide="users" class="w-5 h-5 mb-0.5"></i>

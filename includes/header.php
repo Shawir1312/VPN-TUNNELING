@@ -187,6 +187,10 @@ $routerProfile = Auth::getRouterProfile();
                     <i data-lucide="network" class="w-5 h-5"></i>
                     <span>Port Forward (Dst-NAT)</span>
                 </a>
+                <a href="mikhmon.php" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm font-medium transition <?= $currentPage === 'mikhmon.php' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800' ?>">
+                    <i data-lucide="flame" class="w-5 h-5 text-amber-500"></i>
+                    <span>Mikhmon Online</span>
+                </a>
 
                 <?php if ($currentUser['role'] === 'superadmin'): ?>
                     <div class="pt-4 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
@@ -229,6 +233,10 @@ $routerProfile = Auth::getRouterProfile();
                 <a href="nat.php" class="flex items-center space-x-3 px-3.5 py-3 rounded-xl text-sm font-medium <?= $currentPage === 'nat.php' ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800' ?>">
                     <i data-lucide="network" class="w-5 h-5"></i>
                     <span>Port Forward (Dst-NAT)</span>
+                </a>
+                <a href="mikhmon.php" class="flex items-center space-x-3 px-3.5 py-3 rounded-xl text-sm font-medium <?= $currentPage === 'mikhmon.php' ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800' ?>">
+                    <i data-lucide="flame" class="w-5 h-5 text-amber-500"></i>
+                    <span>Mikhmon Online</span>
                 </a>
                 <?php if ($currentUser['role'] === 'superadmin'): ?>
                     <a href="admins.php" class="flex items-center space-x-3 px-3.5 py-3 rounded-xl text-sm font-medium <?= $currentPage === 'admins.php' ? 'bg-blue-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800' ?>">
