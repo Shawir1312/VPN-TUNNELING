@@ -136,7 +136,30 @@ switch ($action) {
         echo json_encode($res);
         break;
 
+    // ==========================================
+    // 5. AMBIL DAFTAR USER VPN UNTUK DROPDOWN MODAL (ASYNC)
+    // ==========================================
+    case 'get_vpn_users':
+        $myVpnUsers = [];
+        $ros = Auth::getRouterConnection();
+        if ($ros && $ros->connected) {
+            $allSecrets = $ros->comm('/ppp/secret/print');
+            $filteredSecrets = Helpers::filterByOwner($allSecrets, $myUsername);
+            foreach ($filteredSecrets as $sec) {
+                if (!empty($sec['remote-address'])) {
+                    $myVpnUsers[] = [
+                        'name' => $sec['name'] ?? '',
+                        'ip' => $sec['remote-address']
+                    ];
+                }
+            }
+            $ros->disconnect();
+        }
+        echo json_encode(['success' => true, 'data' => $myVpnUsers]);
+        break;
+
     default:
         echo json_encode(['success' => false, 'message' => 'Aksi tidak dikenal']);
         break;
 }
+

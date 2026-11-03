@@ -151,6 +151,8 @@
             if (subEl) subEl.innerText = subtitle;
             
             overlay.classList.remove('hidden', 'pointer-events-none');
+            overlay.classList.add('flex');
+            overlay.style.display = 'flex';
             requestAnimationFrame(() => {
                 overlay.classList.remove('opacity-0');
                 overlay.classList.add('opacity-100');
@@ -165,7 +167,9 @@
             overlay.classList.remove('opacity-100');
             overlay.classList.add('opacity-0');
             setTimeout(() => {
+                overlay.classList.remove('flex');
                 overlay.classList.add('hidden', 'pointer-events-none');
+                overlay.style.display = 'none';
             }, 300);
             window.finishTopProgress();
         };
@@ -174,6 +178,11 @@
         document.addEventListener('submit', (e) => {
             const form = e.target;
             if (!form || form.hasAttribute('data-no-loading')) return;
+            
+            // Jangan timpa custom loading message dari modal-modal khusus
+            const customForms = ['formAddMikhmon', 'formEditMikhmon', 'formAddVpn', 'formEditVpn', 'formAddNat', 'formEditNat', 'formAddPool', 'formAddProfile'];
+            if (form.id && customForms.includes(form.id)) return;
+            
             window.showLoading('Menyimpan Data...', 'Mengirim perintah ke MikroTik...');
         });
 

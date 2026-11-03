@@ -11,23 +11,6 @@ $serverHost = $_SERVER['HTTP_HOST'] ?? 'localhost';
 $baseHost = !empty($configuredDomain) ? $configuredDomain : $serverHost;
 $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 
-// Ambil daftar VPN Users milik admin yang login untuk opsi target router cepat
-$myVpnUsers = [];
-$ros = Auth::getRouterConnection();
-if ($ros && $ros->connected) {
-    $allSecrets = $ros->comm('/ppp/secret/print');
-    $filteredSecrets = Helpers::filterByOwner($allSecrets, $currentUser['username']);
-    foreach ($filteredSecrets as $sec) {
-        if (!empty($sec['remote-address'])) {
-            $myVpnUsers[] = [
-                'name' => $sec['name'] ?? '',
-                'ip' => $sec['remote-address']
-            ];
-        }
-    }
-    $ros->disconnect();
-}
-
 // Cek apakah master template tersedia
 $templateReady = is_dir(MikhmonManager::getTemplateDir());
 ?>
@@ -314,19 +297,14 @@ $templateReady = is_dir(MikhmonManager::getTemplateDir());
                         <i data-lucide="router" class="w-4 h-4 text-emerald-500"></i>
                         <span>Koneksi MikroTik RouterOS</span>
                     </span>
-                    <?php if (!empty($myVpnUsers)): ?>
-                        <span class="text-[10px] text-emerald-600 dark:text-emerald-400">Pilih dari User VPN atau Manual</span>
-                    <?php endif; ?>
+                    <span id="vpnUsersStatusIndicator" class="text-[10px] text-slate-400">Manual / Pilih VPN</span>
                 </div>
 
-                <?php if (!empty($myVpnUsers)): ?>
-                    <select onchange="handleSelectVpnRouter(this, 'addRouterHost')" class="w-full mb-2 bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-slate-800 dark:text-slate-200 font-mono text-[11px]">
+                <div id="vpnRouterContainer" class="hidden mb-2">
+                    <select id="selectVpnRouter" onchange="handleSelectVpnRouter(this, 'addRouterHost')" class="w-full bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-slate-800 dark:text-slate-200 font-mono text-[11px]">
                         <option value="">-- Pilih dari User VPN Router Remote Anda --</option>
-                        <?php foreach ($myVpnUsers as $vu): ?>
-                            <option value="<?= htmlspecialchars($vu['ip']) ?>"><?= htmlspecialchars($vu['name']) ?> &rarr; <?= htmlspecialchars($vu['ip']) ?></option>
-                        <?php endforeach; ?>
                     </select>
-                <?php endif; ?>
+                </div>
 
                 <div class="grid grid-cols-3 gap-2">
                     <div class="col-span-2">
@@ -466,8 +444,43 @@ $templateReady = is_dir(MikhmonManager::getTemplateDir());
 function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
+let vpnUsersLoaded = false;
+async function loadVpnUsers() {
+    if (vpnUsersLoaded) return;
+    const select = document.getElementById('selectVpnRouter');
+    const container = document.getElementById('vpnRouterContainer');
+    const indicator = document.getElementById('vpnUsersStatusIndicator');
+    if (!select || !container) return;
+
+    if (indicator) indicator.innerText = 'Mengecek VPN...';
+    try {
+        const res = await fetch('api/mikhmon_action.php?action=get_vpn_users');
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+            select.innerHTML = '<option value="">-- Pilih dari User VPN Router Remote Anda --</option>';
+            json.data.forEach(vu => {
+                const opt = document.createElement('option');
+                opt.value = vu.ip;
+                opt.textContent = `${vu.name} → ${vu.ip}`;
+                select.appendChild(opt);
+            });
+            container.classList.remove('hidden');
+            if (indicator) {
+                indicator.innerText = `${json.data.length} User VPN Terdeteksi`;
+                indicator.className = 'text-[10px] text-emerald-600 dark:text-emerald-400 font-medium';
+            }
+            vpnUsersLoaded = true;
+        } else {
+            if (indicator) indicator.innerText = 'Input Manual';
+        }
+    } catch (e) {
+        if (indicator) indicator.innerText = 'Input Manual';
+    }
+}
+
 function openModalAddMikhmon() {
     openModal('modalAddMikhmon');
+    loadVpnUsers();
 }
 
 function autoGenerateSlug(name, targetId) {
@@ -624,3 +637,4 @@ if (searchInput) {
 </script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
+

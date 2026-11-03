@@ -102,12 +102,25 @@ class MikhmonManager {
     }
 
     /**
-     * Copy direktori secara rekursif
+     * Copy direktori secara rekursif (Dengan akselerasi cp sistem jika tersedia)
      */
     public static function copyRecursive(string $src, string $dst): bool {
         if (!is_dir($src)) return false;
+
+        // Akselerasi super cepat via command exec OS (biasanya < 15ms)
+        if (function_exists('exec') && !in_array('exec', array_map('trim', explode(',', (string)ini_get('disable_functions'))))) {
+            @mkdir($dst, 0755, true);
+            $escapedSrc = escapeshellarg(rtrim($src, '/') . '/.');
+            $escapedDst = escapeshellarg($dst);
+            @exec("cp -a {$escapedSrc} {$escapedDst} 2>&1", $output, $returnCode);
+            if ($returnCode === 0 && file_exists($dst . '/index.php')) {
+                return true;
+            }
+        }
+
+        // Fallback rekursif PHP murni
         @mkdir($dst, 0755, true);
-        $dir = opendir($src);
+        $dir = @opendir($src);
         if (!$dir) return false;
         
         while (false !== ($file = readdir($dir))) {
@@ -126,11 +139,21 @@ class MikhmonManager {
     }
 
     /**
-     * Hapus direktori secara rekursif
+     * Hapus direktori secara rekursif (Dengan akselerasi rm -rf jika tersedia)
      */
     public static function deleteRecursive(string $dirPath): bool {
         if (!is_dir($dirPath)) return false;
-        $files = scandir($dirPath);
+
+        // Akselerasi via rm -rf jika exec tersedia
+        if (function_exists('exec') && !in_array('exec', array_map('trim', explode(',', (string)ini_get('disable_functions'))))) {
+            $escaped = escapeshellarg($dirPath);
+            @exec("rm -rf {$escaped} 2>&1", $output, $returnCode);
+            if ($returnCode === 0 && !file_exists($dirPath)) {
+                return true;
+            }
+        }
+
+        $files = @scandir($dirPath);
         if (!$files) return false;
 
         foreach ($files as $file) {

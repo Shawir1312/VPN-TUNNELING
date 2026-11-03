@@ -69,30 +69,37 @@ $routerProfile = Auth::getRouterProfile();
     <div id="topProgressBar" class="fixed top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-blue-500 via-cyan-400 to-indigo-500 z-[10000] opacity-0 transition-all duration-300 pointer-events-none shadow-[0_0_12px_rgba(59,130,246,0.85)]" style="width: 0%;"></div>
 
     <!-- Futuristic Glassmorphism Loading Overlay -->
-    <div id="appLoadingOverlay" class="fixed inset-0 z-[9999] bg-slate-950/75 backdrop-blur-md hidden flex-col items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none">
-        <div class="relative flex items-center justify-center mb-6">
-            <!-- Ambient Glow Blob -->
-            <div class="absolute -inset-8 bg-gradient-to-tr from-blue-600/35 via-cyan-500/30 to-indigo-600/35 rounded-full blur-2xl animate-glow-pulse pointer-events-none"></div>
-            <!-- Outer Spinning Gradient Ring -->
-            <div class="w-20 h-20 rounded-full border-[3px] border-transparent border-t-blue-500 border-r-cyan-400 animate-spin"></div>
-            <!-- Middle Reverse-Spinning Ring -->
-            <div class="absolute w-14 h-14 rounded-full border-[2.5px] border-transparent border-b-indigo-500 border-l-purple-500 animate-spin-reverse"></div>
-            <!-- Center Shield Pulse -->
-            <div class="absolute w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/50 animate-pulse">
-                <i data-lucide="shield" class="w-5 h-5"></i>
+    <div id="appLoadingOverlay" class="fixed inset-0 z-[99999] bg-slate-950/85 backdrop-blur-md hidden items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none p-4" style="text-align: center;">
+        <div class="relative flex flex-col items-center justify-center text-center max-w-sm w-full mx-auto p-6 sm:p-8 rounded-3xl bg-slate-900/90 border border-slate-700/60 shadow-2xl backdrop-blur-xl">
+            <!-- Glow Ambient Behind Card -->
+            <div class="absolute -inset-4 bg-gradient-to-r from-blue-600/30 via-cyan-500/25 to-indigo-600/30 rounded-3xl blur-2xl pointer-events-none"></div>
+
+            <!-- Animated Spinner Rings & Shield Container -->
+            <div class="relative flex items-center justify-center w-24 h-24 mb-5">
+                <!-- Ambient Glow Blob -->
+                <div class="absolute -inset-4 bg-gradient-to-tr from-blue-500/35 via-cyan-400/30 to-indigo-500/35 rounded-full blur-xl animate-glow-pulse pointer-events-none"></div>
+                <!-- Outer Spinning Gradient Ring -->
+                <div class="w-20 h-20 rounded-full border-[3px] border-transparent border-t-blue-500 border-r-cyan-400 animate-spin"></div>
+                <!-- Middle Reverse-Spinning Ring -->
+                <div class="absolute w-14 h-14 rounded-full border-[2.5px] border-transparent border-b-indigo-500 border-l-purple-500 animate-spin-reverse"></div>
+                <!-- Center Shield Pulse -->
+                <div class="absolute w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-blue-500/50 animate-pulse">
+                    <i data-lucide="shield" class="w-5 h-5"></i>
+                </div>
             </div>
-        </div>
-        
-        <div class="text-center space-y-1.5 px-4 max-w-sm">
-            <h4 id="loadingTitle" class="text-base font-bold text-white tracking-wide flex items-center justify-center gap-1.5">
-                <span id="loadingTitleText">Memproses Data</span>
-                <span class="inline-flex gap-1 ml-0.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce" style="animation-delay: 0ms"></span>
-                    <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce" style="animation-delay: 150ms"></span>
-                    <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style="animation-delay: 300ms"></span>
-                </span>
-            </h4>
-            <p id="loadingSubtitle" class="text-xs text-blue-200/80 font-mono">Sinkronisasi dengan MikroTik RouterOS...</p>
+            
+            <!-- Loading Text Info -->
+            <div class="w-full text-center space-y-2">
+                <h4 id="loadingTitle" class="text-base sm:text-lg font-bold text-white tracking-wide flex items-center justify-center gap-2">
+                    <span id="loadingTitleText">Memproses Data</span>
+                    <span class="inline-flex gap-1 ml-0.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-bounce" style="animation-delay: 0ms"></span>
+                        <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce" style="animation-delay: 150ms"></span>
+                        <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style="animation-delay: 300ms"></span>
+                    </span>
+                </h4>
+                <p id="loadingSubtitle" class="text-xs text-blue-200/80 font-mono tracking-tight leading-relaxed">Sinkronisasi dengan MikroTik RouterOS...</p>
+            </div>
         </div>
     </div>
 
