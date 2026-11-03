@@ -144,7 +144,7 @@ switch ($action) {
         $ros = Auth::getRouterConnection();
         if ($ros && $ros->connected) {
             $allSecrets = $ros->comm('/ppp/secret/print');
-            $filteredSecrets = Helpers::filterByOwner($allSecrets, $myUsername);
+            $filteredSecrets = Helpers::filterByOwner($allSecrets, $user);
             foreach ($filteredSecrets as $sec) {
                 if (!empty($sec['remote-address'])) {
                     $myVpnUsers[] = [

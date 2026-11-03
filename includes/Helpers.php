@@ -71,9 +71,14 @@ class Helpers {
     /**
      * Filter data MikroTik berdasarkan wewenang admin yang login.
      * PRIVASI PENUH: Baik Super Admin maupun Sub-Admin HANYA melihat data milik akunnya sendiri.
+     * Menerima $currentUser berupa array session admin ATAU string username langsung.
      */
-    public static function filterByOwner(array $items, array $currentUser): array {
-        $myUsername = strtolower($currentUser['username'] ?? '');
+    public static function filterByOwner(array $items, array|string $currentUser): array {
+        if (is_array($currentUser)) {
+            $myUsername = strtolower(trim($currentUser['username'] ?? ''));
+        } else {
+            $myUsername = strtolower(trim((string)$currentUser));
+        }
         $filtered = [];
 
         foreach ($items as $item) {
