@@ -7,12 +7,38 @@ $ros = Auth::getRouterConnection();
 $routerOnline = ($ros && $ros->connected);
 
 $natRules = [];
-$publicIps = [];
 $myVpnUsers = [];
 $vpnLocalIps = [];
+$detectedPublicIp = '';
+
+$configuredDomain = trim($routerProfile['domain_name'] ?? '');
+
+// 1. Deteksi IP Publik nyata dari Domain jika diset
+if (!empty($configuredDomain)) {
+    $resolved = @gethostbyname($configuredDomain);
+    if (filter_var($resolved, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+        $detectedPublicIp = $resolved;
+    }
+}
 
 if ($routerOnline) {
-    // 1. Ambil gateway VPN dari /ppp/profile untuk di-blacklist dari daftar IP Publik
+    // 2. Cek Cloud Public IP dari MikroTik (/ip/cloud) jika belum terdeteksi dari domain
+    if (empty($detectedPublicIp)) {
+        $cloudInfo = $ros->comm('/ip/cloud/print');
+        if (!empty($cloudInfo[0]['public-address'])) {
+            $detectedPublicIp = trim($cloudInfo[0]['public-address']);
+        }
+    }
+
+    // 3. Cek Host Router jika berupa IP Publik
+    if (empty($detectedPublicIp) && !empty($routerProfile['host'])) {
+        $hostIp = trim($routerProfile['host']);
+        if (filter_var($hostIp, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+            $detectedPublicIp = $hostIp;
+        }
+    }
+
+    // 4. Ambil gateway VPN dari /ppp/profile untuk blacklist IP pool lokal
     $rawProfiles = $ros->comm('/ppp/profile/print');
     foreach ($rawProfiles as $p) {
         if (!empty($p['local-address'])) {
@@ -20,50 +46,16 @@ if ($routerOnline) {
         }
     }
 
-    // 2. Ambil IP Pools untuk mendeteksi subnet pool lokal
+    // 5. Ambil IP Pools untuk mendeteksi subnet pool lokal (misal: 70.70.70.1)
     $rawPools = $ros->comm('/ip/pool/print');
     foreach ($rawPools as $pl) {
         $ranges = $pl['ranges'] ?? '';
-        // Ekstrak IP awalan pool (misal: 70.70.70.1)
         if (preg_match('/^(\d+\.\d+\.\d+)\./', $ranges, $m)) {
             $vpnLocalIps[] = $m[1] . '.1';
         }
     }
 
-    // 3. Ambil Cloud Public IP jika ada
-    $cloudInfo = $ros->comm('/ip/cloud/print');
-    $cloudPublicIp = $cloudInfo[0]['public-address'] ?? '';
-    if (!empty($cloudPublicIp)) {
-        $publicIps[] = [
-            'ip' => $cloudPublicIp,
-            'interface' => 'MikroTik Cloud Public IP'
-        ];
-    }
-
-    // 4. Ambil IP di Router untuk deteksi IP Publik (Filter out IP Pool lokal)
-    $ipAddresses = $ros->comm('/ip/address/print', ['?disabled=no']);
-    foreach ($ipAddresses as $addr) {
-        $ipNet = explode('/', $addr['address'] ?? '')[0];
-        if (empty($ipNet)) continue;
-
-        // Cek apakah ini IP pool / gateway lokal VPN
-        $isLocalVpn = in_array($ipNet, $vpnLocalIps, true);
-        if (!$isLocalVpn) {
-            $publicIps[] = [
-                'ip' => $ipNet,
-                'interface' => $addr['interface'] ?? 'wan'
-            ];
-        }
-    }
-
-    // Hapus duplikat IP
-    $uniqueIps = [];
-    foreach ($publicIps as $p) {
-        $uniqueIps[$p['ip']] = $p;
-    }
-    $publicIps = array_values($uniqueIps);
-
-    // 5. Ambil user VPN milik admin yang login untuk opsi target internal
+    // 6. Ambil user VPN milik admin yang login untuk opsi target internal
     $allSecrets = $ros->comm('/ppp/secret/print');
     $filteredSecrets = Helpers::filterByOwner($allSecrets, $currentUser);
     foreach ($filteredSecrets as $sec) {
@@ -76,16 +68,19 @@ if ($routerOnline) {
         }
     }
 
-    // 6. Ambil seluruh rule Dst-NAT & filter milik admin ini
+    // 7. Ambil seluruh rule Dst-NAT & filter milik admin ini
     $allRules = $ros->comm('/ip/firewall/nat/print', ['?chain=dstnat']);
     $natRules = Helpers::filterByOwner($allRules, $currentUser);
 
     $ros->disconnect();
 }
 
-$mainPublicIp = !empty($publicIps) ? $publicIps[0]['ip'] : ($routerProfile['host'] ?? 'IP_PUBLIK');
-$configuredDomain = trim($routerProfile['domain_name'] ?? '');
-$defaultRemoteEndpoint = !empty($configuredDomain) ? $configuredDomain : $mainPublicIp;
+// Fallback jika belum terdeteksi sama sekali
+if (empty($detectedPublicIp)) {
+    $detectedPublicIp = $routerProfile['host'] ?? '103.182.98.100';
+}
+
+$defaultRemoteEndpoint = !empty($configuredDomain) ? $configuredDomain : $detectedPublicIp;
 ?>
 
 <div class="space-y-6">
@@ -112,9 +107,15 @@ $defaultRemoteEndpoint = !empty($configuredDomain) ? $configuredDomain : $mainPu
     <div class="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/80 rounded-2xl p-4 text-xs text-blue-700 dark:text-blue-300 flex items-start gap-3">
         <i data-lucide="info" class="w-5 h-5 flex-shrink-0 text-blue-500"></i>
         <div class="space-y-1">
-            <span class="font-semibold">Konfigurasi Remote Publik yang Benar:</span>
+            <div class="font-semibold flex items-center gap-2">
+                <span>Alamat IP Publik Terdeteksi:</span>
+                <span class="px-2 py-0.5 rounded bg-blue-200 dark:bg-blue-900 text-blue-800 dark:text-blue-200 font-mono font-bold"><?= htmlspecialchars($detectedPublicIp) ?></span>
+                <?php if (!empty($configuredDomain)): ?>
+                    <span class="text-slate-500 font-normal">(Domain: <?= htmlspecialchars($configuredDomain) ?>)</span>
+                <?php endif; ?>
+            </div>
             <p class="text-blue-600 dark:text-blue-300/90 leading-relaxed">
-                Untuk remote dari internet (luar jaringan), <strong>Dst. Address harus menggunakan IP Publik atau dibiarkan Otomatis (Any IP)</strong>, BUKAN IP pool lokal (seperti 70.70.70.1). Jika Dst. Address diisi IP pool lokal, trafik dari internet tidak akan tembus ke target VPN Anda.
+                Untuk akses remote dari internet ke dalam, <strong>Dst. Address diisi dengan IP Publik MikroTik (<?= htmlspecialchars($detectedPublicIp) ?>)</strong> atau dibiarkan Otomatis. <em>Jangan menggunakan IP pool lokal VPN (seperti 70.70.70.1) agar tidak gagal koneksi.</em>
             </p>
         </div>
     </div>
@@ -176,16 +177,20 @@ $defaultRemoteEndpoint = !empty($configuredDomain) ? $configuredDomain : $mainPu
                                     
                                     <!-- Indikator Dst IP Publik vs IP Pool Lokal -->
                                     <?php if ($isLocalPool): ?>
-                                        <div class="text-[11px] text-rose-500 font-semibold flex items-center gap-1 mt-0.5">
-                                            <span>⚠️ Dst IP: <?= htmlspecialchars($dstAddr) ?> (IP Pool Lokal - Klik Edit ganti ke Otomatis agar tembus dari internet!)</span>
+                                        <div class="text-[11px] text-rose-500 font-bold flex flex-wrap items-center gap-1.5 mt-1">
+                                            <span>⚠️ Dst IP: <?= htmlspecialchars($dstAddr) ?> (IP Lokal!)</span>
+                                            <button type="button" onclick='autoFixDstAddress(<?= json_encode($r) ?>)' class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/70 dark:hover:bg-rose-900 text-rose-700 dark:text-rose-300 text-[10px] font-semibold border border-rose-300 dark:border-rose-700 cursor-pointer shadow-sm transition">
+                                                <i data-lucide="wrench" class="w-3 h-3"></i>
+                                                <span>Klik: Perbaiki Jadi IP Publik (<?= htmlspecialchars($detectedPublicIp) ?>)</span>
+                                            </button>
                                         </div>
-                                    <?php elseif (empty($dstAddr)): ?>
-                                        <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">
-                                            Dst IP: Otomatis (Semua IP Publik WAN & Domain)
+                                    <?php elseif (!empty($dstAddr)): ?>
+                                        <div class="text-[10px] text-blue-600 dark:text-blue-400 font-semibold mt-0.5 font-mono">
+                                            Dst IP: <?= htmlspecialchars($dstAddr) ?> (IP Publik)
                                         </div>
                                     <?php else: ?>
-                                        <div class="text-[10px] text-slate-400 mt-0.5">
-                                            Dst IP: <?= htmlspecialchars($dstAddr) ?>
+                                        <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">
+                                            Dst IP: Otomatis (Semua Trafik IP Publik & Domain)
                                         </div>
                                     <?php endif; ?>
                                 </td>
@@ -243,11 +248,15 @@ $defaultRemoteEndpoint = !empty($configuredDomain) ? $configuredDomain : $mainPu
                                     <button onclick="copyText('<?= htmlspecialchars($fullRemoteAddress) ?>')" class="text-blue-500"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
                                 </div>
                                 <?php if ($isLocalPool): ?>
-                                    <div class="text-[10px] text-rose-500 font-bold mt-0.5">
-                                        ⚠️ Dst IP: <?= htmlspecialchars($dstAddr) ?> (Salah! Ganti ke Otomatis via Edit)
+                                    <div class="text-[10px] text-rose-500 font-bold mt-1 space-y-1">
+                                        <div>⚠️ Dst IP: <?= htmlspecialchars($dstAddr) ?> (IP Lokal!)</div>
+                                        <button type="button" onclick='autoFixDstAddress(<?= json_encode($r) ?>)' class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 text-[10px] font-semibold border border-rose-300 dark:border-rose-700">
+                                            <i data-lucide="wrench" class="w-3 h-3"></i>
+                                            <span>Perbaiki Jadi IP Publik (<?= htmlspecialchars($detectedPublicIp) ?>)</span>
+                                        </button>
                                     </div>
                                 <?php else: ?>
-                                    <div class="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">
+                                    <div class="text-[10px] text-blue-600 dark:text-blue-400 font-semibold font-mono mt-0.5">
                                         Dst IP: <?= empty($dstAddr) ? 'Otomatis (IP Publik)' : htmlspecialchars($dstAddr) ?>
                                     </div>
                                 <?php endif; ?>
@@ -311,19 +320,24 @@ $defaultRemoteEndpoint = !empty($configuredDomain) ? $configuredDomain : $mainPu
 
         <form id="formAddNat" class="space-y-3.5 text-xs">
             
-            <!-- IP Publik Target (PILIHAN DEFAULT: OTOMATIS/SEMUA IP PUBLIK) -->
+            <!-- IP Publik Target (PRE-FILLED DENGAN IP PUBLIK NYATA) -->
             <div>
-                <label class="block text-slate-600 dark:text-slate-300 font-semibold mb-1">
-                    IP Publik MikroTik (Dst. Address)
-                </label>
-                <select name="dst_address" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500">
-                    <option value="" selected>🌐 Otomatis / Semua IP Publik (Sangat Direkomendasikan)</option>
-                    <?php foreach ($publicIps as $p): ?>
-                        <option value="<?= htmlspecialchars($p['ip']) ?>">📍 IP Publik WAN: <?= htmlspecialchars($p['ip']) ?> (<?= htmlspecialchars($p['interface']) ?>)</option>
-                    <?php endforeach; ?>
-                </select>
+                <div class="flex items-center justify-between mb-1">
+                    <label class="text-slate-600 dark:text-slate-300 font-semibold">
+                        IP Publik MikroTik (Dst. Address)
+                    </label>
+                    <div class="space-x-1.5">
+                        <button type="button" onclick="setDstAddressInput('addNatDstAddress', '<?= htmlspecialchars($detectedPublicIp) ?>')" class="text-[10px] text-blue-600 dark:text-blue-400 font-semibold hover:underline">
+                            📍 Set IP: <?= htmlspecialchars($detectedPublicIp) ?>
+                        </button>
+                        <button type="button" onclick="setDstAddressInput('addNatDstAddress', '')" class="text-[10px] text-slate-500 hover:underline">
+                            (Kosongkan)
+                        </button>
+                    </div>
+                </div>
+                <input type="text" name="dst_address" id="addNatDstAddress" value="<?= htmlspecialchars($detectedPublicIp) ?>" placeholder="misal: <?= htmlspecialchars($detectedPublicIp) ?>" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-100 font-mono font-semibold focus:outline-none focus:border-blue-500">
                 <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
-                    💡 Pilih <em>"Otomatis / Semua IP Publik"</em> agar trafik dari luar via Domain atau IP Publik WAN langsung tembus tanpa terkunci pada IP lokal pool.
+                    ✓ Otomatis terisi dengan IP Publik MikroTik Anda (<strong><?= htmlspecialchars($detectedPublicIp) ?></strong>).
                 </p>
             </div>
 
@@ -338,7 +352,7 @@ $defaultRemoteEndpoint = !empty($configuredDomain) ? $configuredDomain : $mainPu
                 </div>
                 <div>
                     <div class="flex items-center justify-between mb-1">
-                        <label class="text-slate-600 dark:text-slate-300 font-semibold">Port Publik (WAN) *</label>
+                        <label class="text-slate-600 dark:text-slate-300 font-semibold">Port Publik (Akses Luar) *</label>
                         <button type="button" onclick="generateRandomPublicPort('addNatDstPort')" class="text-[10px] text-blue-600 dark:text-blue-400 font-semibold hover:underline flex items-center gap-0.5">
                             <i data-lucide="dices" class="w-3 h-3"></i>
                             <span>Acak Port (Random)</span>
@@ -412,7 +426,7 @@ $defaultRemoteEndpoint = !empty($configuredDomain) ? $configuredDomain : $mainPu
 </div>
 
 <!-- ============================================================== -->
-<!-- MODAL: EDIT DST-NAT (BISA MENGUBAH DST-ADDRESS KE OTOMATIS/PUBLIK) -->
+<!-- MODAL: EDIT DST-NAT (BISA MENGUBAH DST-ADDRESS KE IP PUBLIK / KOSONG) -->
 <!-- ============================================================== -->
 <div id="modalEditNat" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
     <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
@@ -437,17 +451,22 @@ $defaultRemoteEndpoint = !empty($configuredDomain) ? $configuredDomain : $mainPu
             <input type="hidden" name="id" id="editNatId">
 
             <div>
-                <label class="block text-slate-600 dark:text-slate-300 font-semibold mb-1">
-                    IP Publik MikroTik (Dst. Address)
-                </label>
-                <select name="dst_address" id="editNatDstAddress" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-100">
-                    <option value="">🌐 Otomatis / Semua IP Publik (Sangat Direkomendasikan)</option>
-                    <?php foreach ($publicIps as $p): ?>
-                        <option value="<?= htmlspecialchars($p['ip']) ?>">📍 IP Publik WAN: <?= htmlspecialchars($p['ip']) ?> (<?= htmlspecialchars($p['interface']) ?>)</option>
-                    <?php endforeach; ?>
-                </select>
+                <div class="flex items-center justify-between mb-1">
+                    <label class="text-slate-600 dark:text-slate-300 font-semibold">
+                        IP Publik MikroTik (Dst. Address)
+                    </label>
+                    <div class="space-x-1.5">
+                        <button type="button" onclick="setDstAddressInput('editNatDstAddress', '<?= htmlspecialchars($detectedPublicIp) ?>')" class="text-[10px] text-blue-600 dark:text-blue-400 font-semibold hover:underline">
+                            📍 Pasang IP Publik: <?= htmlspecialchars($detectedPublicIp) ?>
+                        </button>
+                        <button type="button" onclick="setDstAddressInput('editNatDstAddress', '')" class="text-[10px] text-slate-500 hover:underline">
+                            (Kosongkan)
+                        </button>
+                    </div>
+                </div>
+                <input type="text" name="dst_address" id="editNatDstAddress" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-100 font-mono font-semibold focus:outline-none focus:border-blue-500">
                 <p class="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
-                    ✓ Pilih <em>"Otomatis / Semua IP Publik"</em> untuk memperbaiki rule agar bisa diakses dari internet via Domain atau IP Publik.
+                    ✓ Pastikan kolom ini berisi IP Publik nyata (<strong><?= htmlspecialchars($detectedPublicIp) ?></strong>) atau kosongkan, bukan IP pool lokal (seperti 70.70.70.1).
                 </p>
             </div>
 
@@ -461,7 +480,7 @@ $defaultRemoteEndpoint = !empty($configuredDomain) ? $configuredDomain : $mainPu
                 </div>
                 <div>
                     <div class="flex items-center justify-between mb-1">
-                        <label class="text-slate-600 dark:text-slate-300 font-semibold">Port Publik (WAN) *</label>
+                        <label class="text-slate-600 dark:text-slate-300 font-semibold">Port Publik (Akses Luar) *</label>
                         <button type="button" onclick="generateRandomPublicPort('editNatDstPort')" class="text-[10px] text-blue-600 dark:text-blue-400 font-semibold hover:underline flex items-center gap-0.5">
                             <i data-lucide="dices" class="w-3 h-3"></i>
                             <span>Acak Port</span>
@@ -518,6 +537,8 @@ $defaultRemoteEndpoint = !empty($configuredDomain) ? $configuredDomain : $mainPu
 </div>
 
 <script>
+const DETECTED_PUBLIC_IP = "<?= htmlspecialchars($detectedPublicIp) ?>";
+
 function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
@@ -526,7 +547,15 @@ function openModalAddNat() {
     if (!document.getElementById('addNatDstPort').value) {
         generateRandomPublicPort('addNatDstPort');
     }
+    // Pastikan terisi IP Publik
+    if (!document.getElementById('addNatDstAddress').value) {
+        document.getElementById('addNatDstAddress').value = DETECTED_PUBLIC_IP;
+    }
     openModal('modalAddNat');
+}
+
+function setDstAddressInput(inputId, value) {
+    document.getElementById(inputId).value = value;
 }
 
 function copyText(str) {
@@ -556,13 +585,51 @@ function applyPortTemplate(port, label, portInputId, commentInputId) {
     }
 }
 
+// Perbaiki Rule Otomatis ke IP Publik
+function autoFixDstAddress(rule) {
+    const port = rule['dst-port'] || '';
+    const oldDst = rule['dst-address'] || '';
+    if (!confirm(`Perbaiki rule port ${port}?\nDst Address akan diubah dari "${oldDst}" menjadi IP Publik "${DETECTED_PUBLIC_IP}".`)) {
+        return;
+    }
+    const fd = new FormData();
+    fd.append('action', 'edit_nat');
+    fd.append('id', rule['.id']);
+    fd.append('dst_address', DETECTED_PUBLIC_IP);
+    fd.append('protocol', rule['protocol'] || 'tcp');
+    fd.append('dst_port', port);
+    fd.append('to_addresses', rule['to-addresses'] || '');
+    fd.append('to_ports', rule['to-ports'] || '');
+    let comment = rule['comment'] || '';
+    comment = comment.replace(/\[owner:[a-zA-Z0-9_\-\.]+\]/gi, '').trim();
+    fd.append('comment', comment);
+
+    fetch('api/nat_action.php', {
+        method: 'POST',
+        body: fd
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.success) {
+            alert(`✅ Sukses! Rule port ${port} berhasil diubah ke IP Publik (${DETECTED_PUBLIC_IP}).\nSekarang siap diakses dari internet luar.`);
+            location.reload();
+        } else {
+            alert('❌ Gagal memperbarui: ' + res.message);
+        }
+    })
+    .catch(() => alert('Terjadi gangguan jaringan saat menghubungi API'));
+}
+
 // Buka Modal Edit Rule
 function openEditNatModal(rule) {
     document.getElementById('editNatId').value = rule['.id'];
     
-    // Pilih Dst Address (jika kosong atau IP lokal, set ke "")
-    const dstSelect = document.getElementById('editNatDstAddress');
-    dstSelect.value = rule['dst-address'] || '';
+    // Jika rule sebelumnya berisi IP lokal/gateway pool (seperti 70.70.70.1), sarankan langsung ganti ke IP Publik
+    let currDst = rule['dst-address'] || '';
+    if (currDst.startsWith('70.70.') || currDst.startsWith('10.') || currDst.startsWith('192.168.')) {
+        currDst = DETECTED_PUBLIC_IP;
+    }
+    document.getElementById('editNatDstAddress').value = currDst;
 
     document.getElementById('editNatProtocol').value = rule['protocol'] || 'tcp';
     document.getElementById('editNatDstPort').value = rule['dst-port'] || '';
