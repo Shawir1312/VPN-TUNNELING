@@ -11,7 +11,6 @@ class Database {
         if (self::$instance === null) {
             $dbPath = __DIR__ . '/../database/database.sqlite';
             
-            // Buat folder database jika belum ada
             $dir = dirname($dbPath);
             if (!is_dir($dir)) {
                 mkdir($dir, 0755, true);
@@ -21,14 +20,32 @@ class Database {
                 self::$instance = new PDO("sqlite:" . $dbPath);
                 self::$instance->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                 self::$instance->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-                // Aktifkan WAL mode untuk performa baca/tulis cepat
                 self::$instance->exec("PRAGMA journal_mode = WAL;");
                 self::$instance->exec("PRAGMA foreign_keys = ON;");
+                
+                // Cek migrasi kolom domain_name pada router_profiles
+                self::runMigrations(self::$instance);
             } catch (PDOException $e) {
                 die("Koneksi ke SQLite gagal: " . $e->getMessage());
             }
         }
         return self::$instance;
+    }
+
+    private static function runMigrations(PDO $db): void {
+        try {
+            // Cek apakah tabel router_profiles sudah ada
+            $check = $db->query("SELECT name FROM sqlite_master WHERE type='table' AND name='router_profiles'")->fetch();
+            if ($check) {
+                $cols = $db->query("PRAGMA table_info(router_profiles)")->fetchAll();
+                $colNames = array_column($cols, 'name');
+                if (!in_array('domain_name', $colNames, true)) {
+                    $db->exec("ALTER TABLE router_profiles ADD COLUMN domain_name TEXT DEFAULT '';");
+                }
+            }
+        } catch (Exception $e) {
+            // Abaikan jika migrasi sudah berjalan
+        }
     }
 
     public static function initSchema(PDO $db): void {
@@ -51,6 +68,7 @@ class Database {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             host TEXT NOT NULL,
+            domain_name TEXT DEFAULT '',
             api_port INTEGER NOT NULL DEFAULT 8728,
             wan_interface TEXT NOT NULL DEFAULT 'ether1',
             username TEXT NOT NULL,
@@ -75,4 +93,3 @@ class Database {
         $db->exec($sql);
     }
 }
-

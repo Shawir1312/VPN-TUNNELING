@@ -46,6 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // 2. Update Router Settings (Khusus Super Admin)
     elseif ($action === 'update_router' && $currentUser['role'] === 'superadmin') {
         $host = trim($_POST['router_host'] ?? '');
+        $domainName = trim($_POST['domain_name'] ?? '');
         $port = (int)($_POST['router_port'] ?? 8728);
         $user = trim($_POST['router_user'] ?? '');
         $pass = $_POST['router_pass'] ?? '';
@@ -56,6 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $updateParams = [
                 ':h' => $host,
+                ':domain' => $domainName,
                 ':port' => $port,
                 ':wan' => $wan,
                 ':u' => $user
@@ -69,11 +71,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $stmt = $db->prepare("
                 UPDATE router_profiles 
-                SET host = :h, api_port = :port, wan_interface = :wan, username = :u {$passSql}
+                SET host = :h, domain_name = :domain, api_port = :port, wan_interface = :wan, username = :u {$passSql}
                 WHERE is_default = 1
             ");
             $stmt->execute($updateParams);
-            $message = "Pengaturan koneksi router MikroTik berhasil disimpan.";
+            $message = "Pengaturan koneksi router & domain berhasil disimpan.";
             $routerProfile = Auth::getRouterProfile();
         }
     }
@@ -88,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <span>Pengaturan Sistem</span>
         </h1>
         <p class="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mt-0.5">
-            Konfigurasi profil admin dan parameter koneksi API MikroTik.
+            Konfigurasi profil admin dan parameter koneksi API & Domain VPN MikroTik.
         </p>
     </div>
 
@@ -144,7 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </form>
         </div>
 
-        <!-- Card: Koneksi MikroTik (Super Admin Only) -->
+        <!-- Card: Koneksi MikroTik & Domain Remote (Super Admin Only) -->
         <?php if ($currentUser['role'] === 'superadmin'): ?>
             <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700/80 p-5 shadow-sm space-y-4">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700/60">
@@ -152,7 +154,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                             <i data-lucide="server" class="w-4 h-4"></i>
                         </div>
-                        <h3 class="font-bold text-sm text-slate-900 dark:text-white">Koneksi Router MikroTik</h3>
+                        <h3 class="font-bold text-sm text-slate-900 dark:text-white">Koneksi Router & Domain VPN</h3>
                     </div>
                     <button type="button" onclick="testRouterNow()" id="btnTestRouter" class="px-2.5 py-1 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-semibold">
                         Tes Koneksi
@@ -161,6 +163,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 <form method="POST" action="settings.php" class="space-y-3.5 text-xs">
                     <input type="hidden" name="action" value="update_router">
+                    
                     <div class="grid grid-cols-3 gap-2">
                         <div class="col-span-2">
                             <label class="block text-slate-600 dark:text-slate-300 font-semibold mb-1">Host / IP MikroTik *</label>
@@ -171,6 +174,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <input type="number" name="router_port" id="inputRouterPort" value="<?= htmlspecialchars($routerProfile['api_port'] ?? '8728') ?>" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500">
                         </div>
                     </div>
+
+                    <!-- Domain Name / DDNS Setting -->
+                    <div class="bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60 rounded-xl p-3 space-y-1">
+                        <label class="block text-blue-700 dark:text-blue-300 font-semibold flex items-center gap-1.5">
+                            <i data-lucide="globe" class="w-3.5 h-3.5"></i>
+                            <span>Domain / DDNS MikroTik (Untuk Remote Client)</span>
+                        </label>
+                        <input type="text" name="domain_name" value="<?= htmlspecialchars($routerProfile['domain_name'] ?? '') ?>" placeholder="misal: vpn.domainanda.com atau xxxx.sn.mynetname.net" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500">
+                        <p class="text-[10px] text-slate-500 dark:text-slate-400">
+                            Opsional: Jika diisi, domain ini bisa dipilih pada script koneksi klien VPN selain opsi IP Publik.
+                        </p>
+                    </div>
+
                     <div class="grid grid-cols-2 gap-2">
                         <div>
                             <label class="block text-slate-600 dark:text-slate-300 font-semibold mb-1">User API MikroTik *</label>
@@ -188,7 +204,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     <div class="pt-2 flex justify-end">
                         <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl shadow-md shadow-emerald-500/20">
-                            Simpan Router
+                            Simpan Pengaturan
                         </button>
                     </div>
                 </form>
@@ -223,4 +239,3 @@ async function testRouterNow() {
 </script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
-

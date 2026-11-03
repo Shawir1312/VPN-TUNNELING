@@ -36,6 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $allPass) {
     $adminPass = $_POST['admin_password'] ?? '';
     
     $routerHost = trim($_POST['router_host'] ?? '');
+    $domainName = trim($_POST['domain_name'] ?? '');
     $routerPort = (int)($_POST['router_port'] ?? 8728);
     $routerUser = trim($_POST['router_user'] ?? '');
     $routerPass = $_POST['router_pass'] ?? '';
@@ -64,7 +65,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $allPass) {
     // Jika tidak ada error atau user memilih tetap simpan meski peringatan
     if (empty($errors) || (isset($_POST['force_install']) && !empty($adminUser))) {
         try {
-            // Buat folder jika belum ada
             if (!is_dir(__DIR__ . '/config')) {
                 mkdir(__DIR__ . '/config', 0755, true);
             }
@@ -91,11 +91,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $allPass) {
             // Buat Profil Router
             $encryptedPass = Helpers::encrypt($routerPass);
             $stmt = $db->prepare("
-                INSERT OR REPLACE INTO router_profiles (name, host, api_port, wan_interface, username, password_encrypted, is_default)
-                VALUES ('MikroTik Utama', :host, :port, :wan, :u, :p, 1)
+                INSERT OR REPLACE INTO router_profiles (name, host, domain_name, api_port, wan_interface, username, password_encrypted, is_default)
+                VALUES ('MikroTik Utama', :host, :domain, :port, :wan, :u, :p, 1)
             ");
             $stmt->execute([
                 ':host' => $routerHost,
+                ':domain' => $domainName,
                 ':port' => $routerPort,
                 ':wan' => $wanInterface ?: 'ether1',
                 ':u' => $routerUser,
@@ -215,11 +216,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $allPass) {
                         </div>
                     </div>
 
-                    <!-- Section: MikroTik Connection -->
+                    <!-- Section: MikroTik Connection & Domain -->
                     <div class="pt-2 border-t border-slate-700/60">
                         <h3 class="text-sm font-semibold text-emerald-400 mb-3 flex items-center gap-1.5">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"/></svg>
-                            2. Koneksi RouterOS API (Port 8728)
+                            2. Koneksi RouterOS API (Port 8728) & Domain Remote
                         </h3>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div class="sm:col-span-2">
@@ -229,6 +230,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $allPass) {
                             <div>
                                 <label class="block text-xs text-slate-400 mb-1">Port API</label>
                                 <input type="number" name="router_port" value="<?= htmlspecialchars($_POST['router_port'] ?? '8728') ?>" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
+                            </div>
+                            <div class="sm:col-span-3">
+                                <label class="block text-xs text-slate-400 mb-1">Domain / DDNS VPN (Opsional)</label>
+                                <input type="text" name="domain_name" value="<?= htmlspecialchars($_POST['domain_name'] ?? '') ?>" placeholder="misal: vpn.domainanda.com atau xxx.sn.mynetname.net" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500">
                             </div>
                             <div>
                                 <label class="block text-xs text-slate-400 mb-1">User API MikroTik *</label>
@@ -264,9 +269,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $allPass) {
         <?php endif; ?>
 
         <div class="mt-6 text-center text-xs text-slate-500">
-            MikroTik SSTP, L2TP & Dst-NAT Manager &bull; v1.3.0
+            MikroTik SSTP, L2TP & Dst-NAT Manager &bull; v1.4.0
         </div>
     </div>
 </body>
 </html>
-
