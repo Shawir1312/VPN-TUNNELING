@@ -33,10 +33,23 @@ if (!isset($_SESSION["mikhmon"])) {
           
               <div class="card-body">
                 <div class="row">
-                  <?php $getinterface = $API->comm("/interface/print");
-                  $interface = $getinterface[$iface - 1]['name'];
-                  $TotalReg = count($getinterface);
-
+                  <?php 
+                  $getinterface = $API->comm("/interface/print");
+                  $interface = 'ether1';
+                  if (is_array($getinterface) && !empty($getinterface)) {
+                      if (is_numeric($iface)) {
+                          $idx = max(0, ((int)$iface - 1));
+                          $interface = $getinterface[$idx]['name'] ?? ($getinterface[0]['name'] ?? 'ether1');
+                      } else {
+                          foreach ($getinterface as $item) {
+                              if (($item['name'] ?? '') === (string)$iface) {
+                                  $interface = $item['name'];
+                                  break;
+                              }
+                          }
+                      }
+                  }
+                  $TotalReg = is_array($getinterface) ? count($getinterface) : 0;
                   ?>
                   <div class="col-12">
                   <select id="d_interface" class="dropd pd-5" >

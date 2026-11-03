@@ -25,18 +25,20 @@ if (!isset($_SESSION["mikhmon"])) {
 
 // get MikroTik system clock
   $getclock = $API->comm("/system/clock/print");
-  $clock = $getclock[0];
-  $timezone = $getclock[0]['time-zone-name'];
-  $_SESSION['timezone'] = $timezone;
-  date_default_timezone_set($timezone);
+  $clock = $getclock[0] ?? [];
+  $timezone = $clock['time-zone-name'] ?? '';
+  if (!empty($timezone)) {
+      $_SESSION['timezone'] = $timezone;
+      @date_default_timezone_set($timezone);
+  }
 
 // get system resource MikroTik
   $getresource = $API->comm("/system/resource/print");
-  $resource = $getresource[0];
+  $resource = $getresource[0] ?? [];
 
 // get routeboard info
   $getrouterboard = $API->comm("/system/routerboard/print");
-  $routerboard = $getrouterboard[0];
+  $routerboard = $getrouterboard[0] ?? [];
 /*
 // move hotspot log to disk *
   $getlogging = $API->comm("/system/logging/print", array("?prefix" => "->", ));
@@ -232,12 +234,22 @@ if (!isset($_SESSION["mikhmon"])) {
 
               <div class="card-body">
   
-                  <?php $getinterface = $API->comm("/interface/print");
-                  $interface = $getinterface[$iface - 1]['name']; 
-                  /*$TotalReg = count($getinterface);
-                  for ($i = 0; $i < $TotalReg; $i++) {
-                    echo $getinterface[$i]['name'].'<br>';
-                  }*/
+                  <?php 
+                  $getinterface = $API->comm("/interface/print");
+                  $interface = 'ether1';
+                  if (is_array($getinterface) && !empty($getinterface)) {
+                      if (is_numeric($iface)) {
+                          $idx = max(0, ((int)$iface - 1));
+                          $interface = $getinterface[$idx]['name'] ?? ($getinterface[0]['name'] ?? 'ether1');
+                      } else {
+                          foreach ($getinterface as $item) {
+                              if (($item['name'] ?? '') === (string)$iface) {
+                                  $interface = $item['name'];
+                                  break;
+                              }
+                          }
+                      }
+                  }
                   ?>
                   
                   <script type="text/javascript"> 

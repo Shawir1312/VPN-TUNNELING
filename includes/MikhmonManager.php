@@ -92,7 +92,7 @@ class MikhmonManager {
         $out .= "  '{$cleanSession}^{$dnsName}',\n";
         $out .= "  '{$cleanSession}&{$currency}',\n";
         $out .= "  '{$cleanSession}*10',\n";
-        $out .= "  '{$cleanSession}(ether1',\n";
+        $out .= "  '{$cleanSession}(1',\n";
         $out .= "  '{$cleanSession})',\n";
         $out .= "  '{$cleanSession}=10',\n";
         $out .= "  '{$cleanSession}@!@disable'\n";
@@ -169,9 +169,59 @@ class MikhmonManager {
     }
 
     /**
+     * Otomatis sinkronkan file patch kompatibilitas PHP 8 ke instance yang sudah ada di disk
+     */
+    public static function autoRepairInstances(): void {
+        try {
+            $templateDir = self::getTemplateDir();
+            if (!is_dir($templateDir)) return;
+
+            $db = Database::getConnection();
+            $stmt = $db->query("SELECT slug FROM mikhmon_instances");
+            $instances = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+
+            $coreFiles = [
+                'dashboard/home.php',
+                'lib/routeros_api.class.php',
+                'traffic/trafficmonitor.php',
+            ];
+
+            foreach ($instances as $inst) {
+                $slug = trim($inst['slug'] ?? '');
+                if (empty($slug)) continue;
+                $instDir = dirname(__DIR__) . '/' . $slug;
+                if (!is_dir($instDir)) continue;
+
+                // Salin file core engine terbaru
+                foreach ($coreFiles as $relPath) {
+                    $src = $templateDir . '/' . $relPath;
+                    $dst = $instDir . '/' . $relPath;
+                    if (file_exists($src)) {
+                        @mkdir(dirname($dst), 0755, true);
+                        @copy($src, $dst);
+                    }
+                }
+
+                // Perbaiki (ether1 -> (1 pada include/config.php untuk kompatibilitas PHP 8
+                $cfgPath = $instDir . '/include/config.php';
+                if (file_exists($cfgPath)) {
+                    $content = file_get_contents($cfgPath);
+                    if (strpos($content, '(ether1') !== false) {
+                        $content = str_replace('(ether1', '(1', $content);
+                        @file_put_contents($cfgPath, $content);
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // Silently ignore if table not created yet
+        }
+    }
+
+    /**
      * Ambil daftar instance milik admin yang login
      */
     public static function getInstances(int $adminId, string $username, bool $isSuperAdmin = false): array {
+        self::autoRepairInstances();
         $db = Database::getConnection();
         // Super Admin & Sub-Admin memiliki data privacy penuh (hanya melihat miliknya sendiri)
         $stmt = $db->prepare("SELECT * FROM mikhmon_instances WHERE owner_username = :u ORDER BY id DESC");

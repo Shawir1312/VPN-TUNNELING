@@ -22,8 +22,8 @@ class RouterosAPI
     var $port      = 8728;  //  Port to connect to (default 8729 for ssl)
     var $ssl       = false; //  Connect using SSL (must enable api-ssl in IP/Services)
     var $timeout   = 3;     //  Connection attempt timeout and data read timeout
-    var $attempts  = 5;     //  Connection attempt count
-    var $delay     = 3;     //  Delay between connection attempts in seconds
+    var $attempts  = 2;     //  Connection attempt count (2 attempts instead of 5)
+    var $delay     = 1;     //  Delay between connection attempts in seconds
 
     var $socket;            //  Variable for storing socket resource
     var $error_no;          //  Variable for storing connection error number, if any
@@ -94,6 +94,15 @@ class RouterosAPI
      */
     public function connect($ip, $login, $password)
     {
+        // Auto parse IP & Port if host:port passed (mencegah double port host:8728:8728)
+        if (strpos($ip, ':') !== false) {
+            $parts = explode(':', $ip, 2);
+            $ip = $parts[0];
+            if (!empty($parts[1]) && is_numeric($parts[1])) {
+                $this->port = (int)$parts[1];
+            }
+        }
+
         for ($ATTEMPT = 1; $ATTEMPT <= $this->attempts; $ATTEMPT++) {
             $this->connected = false;
             $PROTOCOL = ($this->ssl ? 'ssl://' : '' );
