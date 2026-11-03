@@ -26,21 +26,16 @@ if ($routerOnline) {
     $mySecrets = Helpers::filterByOwner($secrets, $currentUser);
     $myVpnCount = count($mySecrets);
 
-    // Ambil Active Connections
+    // Ambil Active Connections (Hanya sesi milik akun admin yang login)
     $actives = $ros->comm('/ppp/active/print', ['.proplist=.id,name']);
-    if ($currentUser['role'] === 'superadmin') {
-        $activeVpnCount = count($actives);
-    } else {
-        // Cocokkan active user dengan secret milik sub-admin
-        $mySecretNames = array_flip(array_column($mySecrets, 'name'));
-        $count = 0;
-        foreach ($actives as $act) {
-            if (isset($mySecretNames[$act['name'] ?? ''])) {
-                $count++;
-            }
+    $mySecretNames = array_flip(array_column($mySecrets, 'name'));
+    $count = 0;
+    foreach ($actives as $act) {
+        if (isset($mySecretNames[$act['name'] ?? ''])) {
+            $count++;
         }
-        $activeVpnCount = $count;
     }
+    $activeVpnCount = $count;
 
     // Ambil Dst-NAT rules & filter by owner
     $natRules = $ros->comm('/ip/firewall/nat/print', ['?chain=dstnat']);

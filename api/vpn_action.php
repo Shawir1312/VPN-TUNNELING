@@ -72,13 +72,11 @@ switch ($action) {
             break;
         }
 
-        // Cek kepemilikan jika bukan superadmin
-        if (!$isSuperAdmin) {
-            $check = $ros->comm('/ppp/secret/print', ['?.id=' . $id]);
-            if (empty($check) || strtolower(Helpers::getResourceOwner($check[0]['comment'] ?? '')) !== $myUsername) {
-                echo json_encode(['success' => false, 'message' => 'Akses ditolak: User ini bukan milik Anda']);
-                break;
-            }
+        // Cek kepemilikan (Semua role termasuk Super Admin hanya bisa edit miliknya sendiri)
+        $check = $ros->comm('/ppp/secret/print', ['?.id=' . $id]);
+        if (empty($check) || Helpers::getResourceOwner($check[0]['comment'] ?? '') !== $myUsername) {
+            echo json_encode(['success' => false, 'message' => 'Akses ditolak: User ini bukan milik Anda']);
+            break;
         }
 
         $params = ['=.id=' . $id];
@@ -86,8 +84,7 @@ switch ($action) {
         if (!empty($remoteAddress)) $params[] = '=remote-address=' . $remoteAddress;
         if (!empty($profile)) $params[] = '=profile=' . $profile;
         if ($customComment !== '') {
-            $owner = $isSuperAdmin ? (Helpers::getResourceOwner($check[0]['comment'] ?? '') ?: $user['username']) : $user['username'];
-            $params[] = '=comment=' . Helpers::buildResourceComment($owner, $customComment);
+            $params[] = '=comment=' . Helpers::buildResourceComment($user['username'], $customComment);
         }
 
         $res = $ros->comm('/ppp/secret/set', $params);
@@ -102,12 +99,10 @@ switch ($action) {
         $id = $_POST['id'] ?? '';
         $disabled = $_POST['disabled'] ?? 'no';
 
-        if (!$isSuperAdmin) {
-            $check = $ros->comm('/ppp/secret/print', ['?.id=' . $id]);
-            if (empty($check) || strtolower(Helpers::getResourceOwner($check[0]['comment'] ?? '')) !== $myUsername) {
-                echo json_encode(['success' => false, 'message' => 'Akses ditolak']);
-                break;
-            }
+        $check = $ros->comm('/ppp/secret/print', ['?.id=' . $id]);
+        if (empty($check) || Helpers::getResourceOwner($check[0]['comment'] ?? '') !== $myUsername) {
+            echo json_encode(['success' => false, 'message' => 'Akses ditolak: User ini bukan milik Anda']);
+            break;
         }
 
         $res = $ros->comm('/ppp/secret/set', ['=.id=' . $id, '=disabled=' . $disabled]);
@@ -116,12 +111,10 @@ switch ($action) {
 
     case 'delete_secret':
         $id = $_POST['id'] ?? '';
-        if (!$isSuperAdmin) {
-            $check = $ros->comm('/ppp/secret/print', ['?.id=' . $id]);
-            if (empty($check) || strtolower(Helpers::getResourceOwner($check[0]['comment'] ?? '')) !== $myUsername) {
-                echo json_encode(['success' => false, 'message' => 'Akses ditolak']);
-                break;
-            }
+        $check = $ros->comm('/ppp/secret/print', ['?.id=' . $id]);
+        if (empty($check) || Helpers::getResourceOwner($check[0]['comment'] ?? '') !== $myUsername) {
+            echo json_encode(['success' => false, 'message' => 'Akses ditolak: User ini bukan milik Anda']);
+            break;
         }
 
         $res = $ros->comm('/ppp/secret/remove', ['=.id=' . $id]);
@@ -132,12 +125,11 @@ switch ($action) {
         $id = $_POST['id'] ?? '';
         $name = $_POST['name'] ?? '';
 
-        if (!$isSuperAdmin) {
-            $secrets = $ros->comm('/ppp/secret/print', ['?name=' . $name]);
-            if (empty($secrets) || strtolower(Helpers::getResourceOwner($secrets[0]['comment'] ?? '')) !== $myUsername) {
-                echo json_encode(['success' => false, 'message' => 'Akses ditolak']);
-                break;
-            }
+        // Pastikan user aktif ini memang milik admin yang login
+        $secrets = $ros->comm('/ppp/secret/print', ['?name=' . $name]);
+        if (empty($secrets) || Helpers::getResourceOwner($secrets[0]['comment'] ?? '') !== $myUsername) {
+            echo json_encode(['success' => false, 'message' => 'Akses ditolak: Klien ini bukan milik akun Anda']);
+            break;
         }
 
         $res = $ros->comm('/ppp/active/remove', ['=.id=' . $id]);
@@ -157,7 +149,6 @@ switch ($action) {
             break;
         }
 
-        // Tagging nama pool agar unik per admin jika subadmin
         $finalComment = Helpers::buildResourceComment($user['username'], $customComment);
 
         $res = $ros->comm('/ip/pool/add', [
@@ -176,12 +167,10 @@ switch ($action) {
 
     case 'delete_pool':
         $id = $_POST['id'] ?? '';
-        if (!$isSuperAdmin) {
-            $check = $ros->comm('/ip/pool/print', ['?.id=' . $id]);
-            if (empty($check) || strtolower(Helpers::getResourceOwner($check[0]['comment'] ?? '')) !== $myUsername) {
-                echo json_encode(['success' => false, 'message' => 'Akses ditolak: IP Pool ini bukan milik Anda']);
-                break;
-            }
+        $check = $ros->comm('/ip/pool/print', ['?.id=' . $id]);
+        if (empty($check) || Helpers::getResourceOwner($check[0]['comment'] ?? '') !== $myUsername) {
+            echo json_encode(['success' => false, 'message' => 'Akses ditolak: IP Pool ini bukan milik Anda']);
+            break;
         }
 
         $res = $ros->comm('/ip/pool/remove', ['=.id=' . $id]);
@@ -226,12 +215,10 @@ switch ($action) {
 
     case 'delete_profile':
         $id = $_POST['id'] ?? '';
-        if (!$isSuperAdmin) {
-            $check = $ros->comm('/ppp/profile/print', ['?.id=' . $id]);
-            if (empty($check) || strtolower(Helpers::getResourceOwner($check[0]['comment'] ?? '')) !== $myUsername) {
-                echo json_encode(['success' => false, 'message' => 'Akses ditolak: Profil ini bukan milik Anda']);
-                break;
-            }
+        $check = $ros->comm('/ppp/profile/print', ['?.id=' . $id]);
+        if (empty($check) || Helpers::getResourceOwner($check[0]['comment'] ?? '') !== $myUsername) {
+            echo json_encode(['success' => false, 'message' => 'Akses ditolak: Profil ini bukan milik Anda']);
+            break;
         }
 
         $res = $ros->comm('/ppp/profile/remove', ['=.id=' . $id]);
@@ -239,7 +226,7 @@ switch ($action) {
         break;
 
     // ==========================================
-    // 4. SERVER CONFIG & SCRIPT GENERATOR
+    // 4. SERVER CONFIG (SUPER ADMIN ONLY)
     // ==========================================
     case 'save_server_settings':
         if (!$isSuperAdmin) {

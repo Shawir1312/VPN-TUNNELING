@@ -44,7 +44,7 @@ class Helpers {
             return null;
         }
         if (preg_match('/\[owner:([a-zA-Z0-9_\-\.]+)\]/i', $comment, $matches)) {
-            return $matches[1];
+            return strtolower($matches[1]);
         }
         return null;
     }
@@ -69,20 +69,16 @@ class Helpers {
     }
 
     /**
-     * Filter array data dari MikroTik berdasarkan wewenang admin yang login
-     * Superadmin melihat semua; Sub-admin hanya melihat yang bertag miliknya
+     * Filter data MikroTik berdasarkan wewenang admin yang login.
+     * PRIVASI PENUH: Baik Super Admin maupun Sub-Admin HANYA melihat data milik akunnya sendiri.
      */
     public static function filterByOwner(array $items, array $currentUser): array {
-        if (($currentUser['role'] ?? '') === 'superadmin') {
-            return $items;
-        }
-
         $myUsername = strtolower($currentUser['username'] ?? '');
         $filtered = [];
 
         foreach ($items as $item) {
             $comment = $item['comment'] ?? '';
-            $owner = strtolower(self::getResourceOwner($comment) ?? '');
+            $owner = self::getResourceOwner($comment);
             if ($owner === $myUsername) {
                 $filtered[] = $item;
             }
@@ -109,7 +105,7 @@ class Helpers {
                 ':ip' => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1'
             ]);
         } catch (Exception $e) {
-            // Abaikan kegagalan log agar alur utama tidak berhenti
+            // Abaikan kegagalan log agar alur utama tidak terganggu
         }
     }
 
@@ -138,4 +134,3 @@ class Helpers {
         return round($bytes, 1) . ' ' . $units[$i];
     }
 }
-

@@ -35,16 +35,12 @@ if ($routerOnline) {
     }
     $myProfiles = array_values($uniqueProfiles);
 
-    // 4. Ambil Active Sessions
+    // 4. Ambil Active Sessions (Hanya sesi milik akun admin yang login)
     $rawActives = $ros->comm('/ppp/active/print');
-    if ($currentUser['role'] === 'superadmin') {
-        $activeSessions = $rawActives;
-    } else {
-        $mySecretNames = array_flip(array_column($secrets, 'name'));
-        foreach ($rawActives as $act) {
-            if (isset($mySecretNames[$act['name'] ?? ''])) {
-                $activeSessions[] = $act;
-            }
+    $mySecretNames = array_flip(array_column($secrets, 'name'));
+    foreach ($rawActives as $act) {
+        if (isset($mySecretNames[$act['name'] ?? ''])) {
+            $activeSessions[] = $act;
         }
     }
 
@@ -159,9 +155,6 @@ $defaultRemoteHost = !empty($configuredDomain) ? $configuredDomain : $mainPublic
                             <th class="py-3 px-4">Service</th>
                             <th class="py-3 px-4">Remote IP</th>
                             <th class="py-3 px-4">Profil</th>
-                            <?php if ($currentUser['role'] === 'superadmin'): ?>
-                                <th class="py-3 px-4">Owner</th>
-                            <?php endif; ?>
                             <th class="py-3 px-4">Keterangan</th>
                             <th class="py-3 px-4 text-center">Status</th>
                             <th class="py-3 px-4 text-right">Aksi & Script</th>
@@ -170,14 +163,13 @@ $defaultRemoteHost = !empty($configuredDomain) ? $configuredDomain : $mainPublic
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-700/60" id="secretTableBody">
                         <?php if (empty($secrets)): ?>
                             <tr>
-                                <td colspan="<?= $currentUser['role'] === 'superadmin' ? '8' : '7' ?>" class="py-12 text-center text-slate-400">
+                                <td colspan="7" class="py-12 text-center text-slate-400">
                                     Belum ada user VPN yang dibuat. Klik tombol "+ User VPN" di atas.
                                 </td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($secrets as $s): 
                                 $isDisabled = ($s['disabled'] ?? 'false') === 'true';
-                                $owner = Helpers::getResourceOwner($s['comment'] ?? '') ?: 'System';
                                 $displayNote = Helpers::getDisplayComment($s['comment'] ?? '');
                             ?>
                                 <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-700/30 transition">
@@ -195,13 +187,6 @@ $defaultRemoteHost = !empty($configuredDomain) ? $configuredDomain : $mainPublic
                                     <td class="py-3.5 px-4 text-slate-500 font-mono">
                                         <?= htmlspecialchars($s['profile'] ?? 'default') ?>
                                     </td>
-                                    <?php if ($currentUser['role'] === 'superadmin'): ?>
-                                        <td class="py-3.5 px-4">
-                                            <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300">
-                                                <?= htmlspecialchars($owner) ?>
-                                            </span>
-                                        </td>
-                                    <?php endif; ?>
                                     <td class="py-3.5 px-4 text-slate-500 max-w-xs truncate" title="<?= htmlspecialchars($displayNote) ?>">
                                         <?= htmlspecialchars($displayNote) ?>
                                     </td>
@@ -320,9 +305,6 @@ $defaultRemoteHost = !empty($configuredDomain) ? $configuredDomain : $mainPublic
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <?php if ($currentUser['role'] === 'superadmin'): ?>
-                                        <span class="text-[10px] px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-full"><?= htmlspecialchars($owner) ?></span>
-                                    <?php endif; ?>
                                     <button onclick="deletePool('<?= $pool['.id'] ?>', '<?= htmlspecialchars($pool['name']) ?>')" class="p-1 text-slate-400 hover:text-rose-600" title="Hapus Pool">
                                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                                     </button>
@@ -367,9 +349,6 @@ $defaultRemoteHost = !empty($configuredDomain) ? $configuredDomain : $mainPublic
                                 </div>
                             </div>
                             <div class="flex items-center gap-2">
-                                <?php if ($currentUser['role'] === 'superadmin' && !$isDefault): ?>
-                                    <span class="text-[10px] px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-full"><?= htmlspecialchars($owner) ?></span>
-                                <?php endif; ?>
                                 <?php if (!$isDefault): ?>
                                     <button onclick="deleteProfile('<?= $prof['.id'] ?>', '<?= htmlspecialchars($prof['name']) ?>')" class="p-1 text-slate-400 hover:text-rose-600" title="Hapus Profile">
                                         <i data-lucide="trash-2" class="w-4 h-4"></i>

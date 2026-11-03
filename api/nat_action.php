@@ -21,6 +21,9 @@ $myUsername = strtolower($user['username']);
 $isSuperAdmin = ($user['role'] === 'superadmin');
 
 switch ($action) {
+    // ==========================================
+    // 1. TAMBAH RULE DST-NAT BARU
+    // ==========================================
     case 'add_nat':
         $dstAddress = trim($_POST['dst_address'] ?? '');
         $protocol = $_POST['protocol'] ?? 'tcp';
@@ -44,7 +47,6 @@ switch ($action) {
         ]);
 
         if (!empty($existingRules)) {
-            // Cek apakah ada rule yang IP publiknya sama atau wildcard (tanpa dst-address)
             foreach ($existingRules as $rule) {
                 $ruleDstAddr = $rule['dst-address'] ?? '';
                 if ($ruleDstAddr === '' || $dstAddress === '' || $ruleDstAddr === $dstAddress) {
@@ -92,30 +94,102 @@ switch ($action) {
         }
         break;
 
+    // ==========================================
+    // 2. EDIT RULE DST-NAT (PORT, TARGET, KETERANGAN)
+    // ==========================================
+    case 'edit_nat':
+        $id = $_POST['id'] ?? '';
+        $dstAddress = trim($_POST['dst_address'] ?? '');
+        $protocol = $_POST['protocol'] ?? 'tcp';
+        $dstPort = trim($_POST['dst_port'] ?? '');
+        $toAddresses = trim($_POST['to_addresses'] ?? '');
+        $toPorts = trim($_POST['to_ports'] ?? '');
+        $customComment = trim($_POST['comment'] ?? '');
+
+        if (empty($id) || empty($dstPort) || empty($toAddresses) || empty($toPorts)) {
+            echo json_encode(['success' => false, 'message' => 'Semua kolom wajib diisi']);
+            break;
+        }
+
+        // Cek kepemilikan
+        $check = $ros->comm('/ip/firewall/nat/print', ['?.id=' . $id]);
+        if (empty($check) || Helpers::getResourceOwner($check[0]['comment'] ?? '') !== $myUsername) {
+            echo json_encode(['success' => false, 'message' => 'Akses ditolak: Rule ini bukan milik Anda']);
+            break;
+        }
+
+        // Cek konflik port jika port publik atau protokol diubah
+        $currentRule = $check[0];
+        if (($currentRule['dst-port'] ?? '') !== $dstPort || ($currentRule['protocol'] ?? '') !== $protocol) {
+            $existingRules = $ros->comm('/ip/firewall/nat/print', [
+                '?chain=dstnat',
+                '?protocol=' . $protocol,
+                '?dst-port=' . $dstPort
+            ]);
+
+            foreach ($existingRules as $rule) {
+                if (($rule['.id'] ?? '') !== $id) {
+                    $owner = Helpers::getResourceOwner($rule['comment'] ?? '') ?: 'admin lain';
+                    http_response_code(409);
+                    echo json_encode([
+                        'success' => false,
+                        'conflict' => true,
+                        'owner' => $owner,
+                        'message' => "Port publik {$dstPort} ({$protocol}) telah digunakan oleh '{$owner}'. Silakan ganti port lain."
+                    ]);
+                    $ros->disconnect();
+                    exit;
+                }
+            }
+        }
+
+        $finalComment = Helpers::buildResourceComment($user['username'], $customComment);
+        $params = [
+            '=.id=' . $id,
+            '=protocol=' . $protocol,
+            '=dst-port=' . $dstPort,
+            '=to-addresses=' . $toAddresses,
+            '=to-ports=' . $toPorts,
+            '=comment=' . $finalComment
+        ];
+        if (!empty($dstAddress)) {
+            $params[] = '=dst-address=' . $dstAddress;
+        }
+
+        $res = $ros->comm('/ip/firewall/nat/set', $params);
+        if (isset($res['!trap'])) {
+            echo json_encode(['success' => false, 'message' => $res['!trap']['message'] ?? 'Gagal memperbarui rule']);
+        } else {
+            echo json_encode(['success' => true, 'message' => 'Rule Dst-NAT berhasil diperbarui']);
+        }
+        break;
+
+    // ==========================================
+    // 3. HAPUS RULE DST-NAT
+    // ==========================================
     case 'delete_nat':
         $id = $_POST['id'] ?? '';
-        if (!$isSuperAdmin) {
-            $check = $ros->comm('/ip/firewall/nat/print', ['?.id=' . $id]);
-            if (empty($check) || strtolower(Helpers::getResourceOwner($check[0]['comment'] ?? '')) !== $myUsername) {
-                echo json_encode(['success' => false, 'message' => 'Akses ditolak: Rule ini bukan milik Anda']);
-                break;
-            }
+        $check = $ros->comm('/ip/firewall/nat/print', ['?.id=' . $id]);
+        if (empty($check) || Helpers::getResourceOwner($check[0]['comment'] ?? '') !== $myUsername) {
+            echo json_encode(['success' => false, 'message' => 'Akses ditolak: Rule ini bukan milik Anda']);
+            break;
         }
 
         $res = $ros->comm('/ip/firewall/nat/remove', ['=.id=' . $id]);
         echo json_encode(['success' => !isset($res['!trap']), 'message' => isset($res['!trap']) ? $res['!trap']['message'] : 'Rule Dst-NAT berhasil dihapus']);
         break;
 
+    // ==========================================
+    // 4. TOGGLE AKTIF / NONAKTIF
+    // ==========================================
     case 'toggle_nat':
         $id = $_POST['id'] ?? '';
         $disabled = $_POST['disabled'] ?? 'no';
 
-        if (!$isSuperAdmin) {
-            $check = $ros->comm('/ip/firewall/nat/print', ['?.id=' . $id]);
-            if (empty($check) || strtolower(Helpers::getResourceOwner($check[0]['comment'] ?? '')) !== $myUsername) {
-                echo json_encode(['success' => false, 'message' => 'Akses ditolak']);
-                break;
-            }
+        $check = $ros->comm('/ip/firewall/nat/print', ['?.id=' . $id]);
+        if (empty($check) || Helpers::getResourceOwner($check[0]['comment'] ?? '') !== $myUsername) {
+            echo json_encode(['success' => false, 'message' => 'Akses ditolak']);
+            break;
         }
 
         $res = $ros->comm('/ip/firewall/nat/set', ['=.id=' . $id, '=disabled=' . $disabled]);
@@ -128,4 +202,3 @@ switch ($action) {
 }
 
 $ros->disconnect();
-
