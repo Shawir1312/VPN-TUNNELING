@@ -22,11 +22,19 @@ Aplikasi web manajemen VPN (SSTP & L2TP/IPsec) dan Port Forwarding (Dst-NAT) ber
    - Tiap admin memiliki ruang privasi terpisah: `admin1` tidak dapat melihat atau mengedit VPN maupun rule Dst-NAT milik `admin2`.
    - Menggunakan standardisasi penandaan metadata otomatis pada comment router: `[owner:username]`.
 
-5. **Cross-Admin Port Conflict Notification**:
+5. **Manajemen IP Pool & PPP Profile Privat per Admin**:
+   - Setiap admin (`admin1`, `admin2`) dapat membuat **IP Pool** dan **PPP Profile** sendiri secara terisolasi.
+   - Mengatur gateway lokal (*local address*), rentang pool klien (*remote address*), DNS Server, dan batasan bandwidth (*rate limit*) untuk masing-masing user VPN.
+
+6. **Generator Script MikroTik (Tinggal Paste ke Terminal)**:
+   - **Script Server Setup**: 1-Klik Salin (*Copy*) script inisialisasi server untuk membuat IP Pool, Profile, mengaktifkan SSTP & L2TP server, firewall filter, serta NAT Masquerade di MikroTik server.
+   - **Script Klien MikroTik (Router-to-Router)**: Tombol *Copy Script* pada setiap akun user VPN untuk langsung di-paste ke terminal MikroTik klien.
+
+7. **Cross-Admin Port Conflict Notification**:
    - Jika `admin2` mencoba mendaftarkan port forwarding publik yang sudah dipakai oleh `admin1`, sistem otomatis memblokir dan menampilkan notifikasi transparan:
      > `⚠️ Port publik [port] telah digunakan oleh 'admin1'. Silakan gunakan nomor port lain.`
 
-6. **Tampilan Responsif & Dual Theme (Light & Dark Mode)**:
+8. **Tampilan Responsif & Dual Theme (Light & Dark Mode)**:
    - Optimal diakses melalui smartphone, tablet, maupun layar desktop.
    - Sakelar toggle tema (☀️ Light / 🌙 Dark) yang adaptif dan tersimpan di preferensi pengguna.
 
@@ -94,13 +102,13 @@ VPN-TUNNELING/
 │   └── footer.php              # Footer, Chart.js, & script tema
 ├── api/
 │   ├── traffic.php             # Endpoint polling real-time CPU, RAM, & WAN Speed
-│   ├── vpn_action.php          # CRUD PPP Secret, Active session kick, & Server setting
+│   ├── vpn_action.php          # CRUD PPP Secret, IP Pool, PPP Profile, & Server setting
 │   ├── nat_action.php          # CRUD Dst-NAT & validasi bentrok port antar-admin
 │   └── theme_action.php        # Sinkronisasi preferensi tema ke database
 ├── install.php                 # Web Setup Wizard awal
 ├── index.php                   # Halaman Login
 ├── dashboard.php               # Dashboard monitoring real-time & grafik internet
-├── vpn.php                     # Kelola VPN SSTP, L2TP, Secret & Sesi Aktif
+├── vpn.php                     # Kelola VPN SSTP, L2TP, IP Pool, Profile & Script Generator
 ├── nat.php                     # Kelola Port Forwarding (Dst-NAT)
 ├── admins.php                  # Kelola Sub-Admin (Khusus Super Admin)
 ├── settings.php                # Pengaturan profil & IP MikroTik
@@ -115,4 +123,3 @@ VPN-TUNNELING/
 - **Password Admin**: Dihash menggunakan algoritma `bcrypt` dengan salt aman.
 - **Password MikroTik**: Disimpan terenkripsi secara simetris di basis data SQLite menggunakan algoritma **AES-256-CBC**.
 - **Audit Trail**: Seluruh tindakan penambahan, pengubahan status, atau penghapusan resource dicatat ke tabel `audit_logs` di SQLite lengkap dengan alamat IP pembuat.
-

@@ -21,6 +21,9 @@ $myUsername = strtolower($user['username']);
 $isSuperAdmin = ($user['role'] === 'superadmin');
 
 switch ($action) {
+    // ==========================================
+    // 1. MANAJEMEN AKUN PPP SECRET
+    // ==========================================
     case 'add_secret':
         $name = trim($_POST['name'] ?? '');
         $password = $_POST['password'] ?? '';
@@ -130,7 +133,6 @@ switch ($action) {
         $name = $_POST['name'] ?? '';
 
         if (!$isSuperAdmin) {
-            // Pastikan user aktif ini memang terdaftar sebagai milik sub-admin
             $secrets = $ros->comm('/ppp/secret/print', ['?name=' . $name]);
             if (empty($secrets) || strtolower(Helpers::getResourceOwner($secrets[0]['comment'] ?? '')) !== $myUsername) {
                 echo json_encode(['success' => false, 'message' => 'Akses ditolak']);
@@ -142,6 +144,103 @@ switch ($action) {
         echo json_encode(['success' => !isset($res['!trap']), 'message' => 'Sesi user berhasil diputus']);
         break;
 
+    // ==========================================
+    // 2. MANAJEMEN IP POOL PER ADMIN
+    // ==========================================
+    case 'add_pool':
+        $poolName = trim($_POST['name'] ?? '');
+        $ranges = trim($_POST['ranges'] ?? '');
+        $customComment = trim($_POST['comment'] ?? '');
+
+        if (empty($poolName) || empty($ranges)) {
+            echo json_encode(['success' => false, 'message' => 'Nama Pool dan Rentang IP (Ranges) wajib diisi']);
+            break;
+        }
+
+        // Tagging nama pool agar unik per admin jika subadmin
+        $finalComment = Helpers::buildResourceComment($user['username'], $customComment);
+
+        $res = $ros->comm('/ip/pool/add', [
+            '=name=' . $poolName,
+            '=ranges=' . $ranges,
+            '=comment=' . $finalComment
+        ]);
+
+        if (isset($res['!trap'])) {
+            echo json_encode(['success' => false, 'message' => $res['!trap']['message'] ?? 'Gagal membuat IP Pool']);
+        } else {
+            Helpers::logAudit($user['id'], $user['username'], 'CREATE_IP_POOL', 'ip_pool', ['name' => $poolName, 'ranges' => $ranges]);
+            echo json_encode(['success' => true, 'message' => "IP Pool '{$poolName}' berhasil dibuat"]);
+        }
+        break;
+
+    case 'delete_pool':
+        $id = $_POST['id'] ?? '';
+        if (!$isSuperAdmin) {
+            $check = $ros->comm('/ip/pool/print', ['?.id=' . $id]);
+            if (empty($check) || strtolower(Helpers::getResourceOwner($check[0]['comment'] ?? '')) !== $myUsername) {
+                echo json_encode(['success' => false, 'message' => 'Akses ditolak: IP Pool ini bukan milik Anda']);
+                break;
+            }
+        }
+
+        $res = $ros->comm('/ip/pool/remove', ['=.id=' . $id]);
+        echo json_encode(['success' => !isset($res['!trap']), 'message' => isset($res['!trap']) ? $res['!trap']['message'] : 'IP Pool berhasil dihapus']);
+        break;
+
+    // ==========================================
+    // 3. MANAJEMEN PPP PROFILE PER ADMIN
+    // ==========================================
+    case 'add_profile':
+        $profileName = trim($_POST['name'] ?? '');
+        $localAddress = trim($_POST['local_address'] ?? '');
+        $remoteAddress = trim($_POST['remote_address'] ?? '');
+        $dnsServer = trim($_POST['dns_server'] ?? '');
+        $rateLimit = trim($_POST['rate_limit'] ?? '');
+        $customComment = trim($_POST['comment'] ?? '');
+
+        if (empty($profileName) || empty($localAddress) || empty($remoteAddress)) {
+            echo json_encode(['success' => false, 'message' => 'Nama Profil, Local Address (Gateway), dan Remote Address (Pool) wajib diisi']);
+            break;
+        }
+
+        $finalComment = Helpers::buildResourceComment($user['username'], $customComment);
+
+        $params = [
+            '=name=' . $profileName,
+            '=local-address=' . $localAddress,
+            '=remote-address=' . $remoteAddress,
+            '=comment=' . $finalComment
+        ];
+        if (!empty($dnsServer)) $params[] = '=dns-server=' . $dnsServer;
+        if (!empty($rateLimit)) $params[] = '=rate-limit=' . $rateLimit;
+
+        $res = $ros->comm('/ppp/profile/add', $params);
+        if (isset($res['!trap'])) {
+            echo json_encode(['success' => false, 'message' => $res['!trap']['message'] ?? 'Gagal membuat PPP Profile']);
+        } else {
+            Helpers::logAudit($user['id'], $user['username'], 'CREATE_PPP_PROFILE', 'ppp_profile', ['name' => $profileName]);
+            echo json_encode(['success' => true, 'message' => "PPP Profile '{$profileName}' berhasil dibuat"]);
+        }
+        break;
+
+    case 'delete_profile':
+        $id = $_POST['id'] ?? '';
+        if (!$isSuperAdmin) {
+            $check = $ros->comm('/ppp/profile/print', ['?.id=' . $id]);
+            if (empty($check) || strtolower(Helpers::getResourceOwner($check[0]['comment'] ?? '')) !== $myUsername) {
+                echo json_encode(['success' => false, 'message' => 'Akses ditolak: Profil ini bukan milik Anda']);
+                break;
+            }
+        }
+
+        $res = $ros->comm('/ppp/profile/remove', ['=.id=' . $id]);
+        echo json_encode(['success' => !isset($res['!trap']), 'message' => isset($res['!trap']) ? $res['!trap']['message'] : 'PPP Profile berhasil dihapus']);
+        break;
+
+    // ==========================================
+    // 4. SERVER CONFIG & SCRIPT GENERATOR
+    // ==========================================
     case 'save_server_settings':
         if (!$isSuperAdmin) {
             echo json_encode(['success' => false, 'message' => 'Hanya Super Admin yang dapat mengubah konfigurasi server']);
@@ -155,13 +254,11 @@ switch ($action) {
         $l2tpUseIpsec = $_POST['l2tp_use_ipsec'] ?? 'yes';
         $l2tpSecret = $_POST['l2tp_ipsec_secret'] ?? '';
 
-        // Update SSTP Server
         $ros->comm('/interface/sstp-server/server/set', [
             '=enabled=' . $sstpEnabled,
             '=port=' . $sstpPort
         ]);
 
-        // Update L2TP Server
         $l2tpParams = [
             '=enabled=' . $l2tpEnabled,
             '=use-ipsec=' . $l2tpUseIpsec
@@ -180,4 +277,3 @@ switch ($action) {
 }
 
 $ros->disconnect();
-
