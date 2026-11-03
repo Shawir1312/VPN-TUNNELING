@@ -163,6 +163,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 <form method="POST" action="settings.php" class="space-y-3.5 text-xs">
                     <input type="hidden" name="action" value="update_router">
+
+                    <!-- Info Khusus VPS cPanel / Firewall -->
+                    <div class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 rounded-xl text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
+                        <i data-lucide="shield-alert" class="w-4 h-4 flex-shrink-0 text-amber-600 mt-0.5"></i>
+                        <div class="space-y-1">
+                            <span class="font-bold">Tips Koneksi VPS cPanel / CSF Firewall:</span>
+                            <p class="leading-relaxed text-[11px] text-amber-700 dark:text-amber-300/90">
+                                Pada VPS cPanel, firewall CSF secara default memblokir port keluar. Tambahkan port <strong>8728</strong> pada <code>TCP_OUT</code> di <strong>WHM &rarr; ConfigServer Security &amp; Firewall (csf.conf)</strong> lalu restart CSF, serta pastikan <code>fsockopen</code> tidak ada di <em>disable_functions</em> php.ini.
+                            </p>
+                        </div>
+                    </div>
                     
                     <div class="grid grid-cols-3 gap-2">
                         <div class="col-span-2">
@@ -218,21 +229,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <script>
 async function testRouterNow() {
     const btn = document.getElementById('btnTestRouter');
+    const origText = btn.innerText;
     btn.innerText = 'Mengetes...';
     btn.disabled = true;
 
+    const host = document.getElementById('inputRouterHost')?.value || '';
+    const port = document.getElementById('inputRouterPort')?.value || '8728';
+    const username = document.getElementById('inputRouterUser')?.value || '';
+    const password = document.getElementById('inputRouterPass')?.value || '';
+
+    const fd = new FormData();
+    fd.append('action', 'test_connection');
+    fd.append('host', host);
+    fd.append('port', port);
+    fd.append('username', username);
+    fd.append('password', password);
+
     try {
-        const res = await fetch('api/traffic.php');
+        const res = await fetch('api/vpn_action.php', { method: 'POST', body: fd });
         const json = await res.json();
-        if (json.online) {
-            alert(`✅ Berhasil terhubung ke ${json.board_name} (RouterOS v${json.version})!`);
+        if (json.success) {
+            alert(`✅ ${json.message}`);
         } else {
-            alert(`❌ Gagal: ${json.error}`);
+            alert(`❌ Gagal:\n${json.message}`);
         }
     } catch (e) {
-        alert('Gagal menghubungi backend');
+        alert('Gagal menghubungi backend untuk tes koneksi');
     } finally {
-        btn.innerText = 'Tes Koneksi';
+        btn.innerText = origText;
         btn.disabled = false;
     }
 }

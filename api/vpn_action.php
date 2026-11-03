@@ -11,9 +11,52 @@ if (!$user) {
 }
 
 $action = $_POST['action'] ?? ($_GET['action'] ?? '');
+
+// ==============================================================
+// AKSI KHUSUS: TES KONEKSI & DIAGNOSTIK KE ROUTEROS
+// ==============================================================
+if ($action === 'test_connection') {
+    $host = trim($_POST['host'] ?? '');
+    $port = (int)($_POST['port'] ?? 8728);
+    $username = trim($_POST['username'] ?? '');
+    $password = $_POST['password'] ?? '';
+
+    // Jika password kosong, coba gunakan password tersimpan di database
+    if ($password === '') {
+        $profile = Auth::getRouterProfile();
+        if ($profile && !empty($profile['password_encrypted'])) {
+            $password = Helpers::decrypt($profile['password_encrypted']);
+        }
+    }
+
+    if (empty($host) || empty($username)) {
+        echo json_encode(['success' => false, 'message' => 'Host/IP MikroTik dan Username wajib diisi']);
+        exit;
+    }
+
+    $testRos = new RouterOS();
+    $ok = $testRos->connect($host, $username, $password, $port, 5);
+    if ($ok) {
+        $res = $testRos->comm('/system/resource/print');
+        $board = $res[0]['board-name'] ?? ($res[0]['platform'] ?? 'MikroTik');
+        $ver = $res[0]['version'] ?? '';
+        $testRos->disconnect();
+        echo json_encode([
+            'success' => true,
+            'message' => "Berhasil terhubung ke {$board} (RouterOS v{$ver})!"
+        ]);
+    } else {
+        echo json_encode([
+            'success' => false,
+            'message' => $testRos->error ?: 'Gagal terhubung ke MikroTik API'
+        ]);
+    }
+    exit;
+}
+
 $ros = Auth::getRouterConnection();
 if (!$ros || !$ros->connected) {
-    echo json_encode(['success' => false, 'message' => 'Tidak dapat terhubung ke MikroTik API']);
+    echo json_encode(['success' => false, 'message' => Auth::getLastRouterError() ?: 'Tidak dapat terhubung ke MikroTik API']);
     exit;
 }
 

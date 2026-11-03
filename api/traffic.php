@@ -17,7 +17,7 @@ $ros = Auth::getRouterConnection();
 if (!$ros || !$ros->connected) {
     echo json_encode([
         'online' => false,
-        'error' => 'Tidak dapat terhubung ke MikroTik API (Port 8728)'
+        'error' => Auth::getLastRouterError() ?: 'Tidak dapat terhubung ke MikroTik API (Port 8728)'
     ]);
     exit;
 }

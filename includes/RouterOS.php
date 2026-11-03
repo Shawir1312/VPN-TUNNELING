@@ -14,9 +14,24 @@ class RouterOS {
         $this->timeout = $timeout;
         $this->error = '';
         
+        // 1. Cek ketersediaan fungsi socket di PHP
+        if (!function_exists('fsockopen')) {
+            $this->error = "Fungsi fsockopen() dinonaktifkan di php.ini server cPanel (disable_functions). Mohon aktifkan di cPanel -> MultiPHP INI Editor.";
+            $this->connected = false;
+            return false;
+        }
+
+        // 2. Buka koneksi socket ke MikroTik
         $socket = @fsockopen($host, $port, $errno, $errstr, $timeout);
         if (!$socket) {
-            $this->error = "Gagal terhubung ke {$host}:{$port} ({$errstr})";
+            $errLower = strtolower($errstr);
+            if ($errno === 110 || str_contains($errLower, 'timed out') || str_contains($errLower, 'operation timed out')) {
+                $this->error = "Koneksi Timeout ke {$host}:{$port}. Port 8728 diblokir oleh Firewall Outbound VPS cPanel (CSF TCP_OUT) atau ISP MikroTik.";
+            } elseif ($errno === 111 || str_contains($errLower, 'refused')) {
+                $this->error = "Koneksi Ditolak ({$host}:{$port}). Port 8728 di MikroTik tidak aktif atau dibatasi oleh /ip service / firewall.";
+            } else {
+                $this->error = "Gagal terhubung ke {$host}:{$port} [Err {$errno}: {$errstr}]. Periksa firewall outgoing cPanel atau koneksi.";
+            }
             $this->connected = false;
             return false;
         }

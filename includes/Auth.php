@@ -104,15 +104,23 @@ class Auth {
         session_destroy();
     }
 
+    private static string $lastRouterError = '';
+
+    public static function getLastRouterError(): string {
+        return self::$lastRouterError;
+    }
+
     /**
      * Dapatkan koneksi RouterOS aktif
      */
     public static function getRouterConnection(): ?RouterOS {
+        self::$lastRouterError = '';
         $db = Database::getConnection();
         $stmt = $db->query("SELECT * FROM router_profiles WHERE is_default = 1 LIMIT 1");
         $router = $stmt->fetch();
 
         if (!$router) {
+            self::$lastRouterError = 'Profil router belum dikonfigurasi di database.';
             return null;
         }
 
@@ -122,6 +130,7 @@ class Auth {
         if ($ok) {
             return $ros;
         }
+        self::$lastRouterError = $ros->error ?: 'Gagal terhubung ke MikroTik API (Port 8728)';
         return null;
     }
 
