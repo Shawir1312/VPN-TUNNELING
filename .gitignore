@@ -1,0 +1,12 @@
+# Local SQLite databases & state locks
+database/*.sqlite
+database/*.sqlite-wal
+database/*.sqlite-shm
+config/installed.lock
+
+# OS & Editor generated files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
