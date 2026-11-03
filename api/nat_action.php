@@ -78,7 +78,10 @@ switch ($action) {
             '=to-ports=' . $toPorts,
             '=comment=' . $finalComment
         ];
-        if (!empty($dstAddress)) {
+        
+        // HANYA pasang dst-address jika user mengisi IP Publik secara spesifik
+        // Jika kosong, MikroTik otomatis menerima dari semua IP Publik / WAN / Domain
+        if (!empty($dstAddress) && $dstAddress !== 'any') {
             $params[] = '=dst-address=' . $dstAddress;
         }
 
@@ -152,11 +155,22 @@ switch ($action) {
             '=to-ports=' . $toPorts,
             '=comment=' . $finalComment
         ];
-        if (!empty($dstAddress)) {
+        
+        if (!empty($dstAddress) && $dstAddress !== 'any') {
             $params[] = '=dst-address=' . $dstAddress;
+            $res = $ros->comm('/ip/firewall/nat/set', $params);
+        } else {
+            // Unset dst-address agar menjadi kosong / any IP Publik
+            $params[] = '=!dst-address';
+            $res = $ros->comm('/ip/firewall/nat/set', $params);
+            if (isset($res['!trap'])) {
+                // Fallback jika router membutuhkan unset terpisah
+                unset($params[array_search('=!dst-address', $params)]);
+                $res = $ros->comm('/ip/firewall/nat/set', $params);
+                $ros->comm('/ip/firewall/nat/unset', ['=.id=' . $id, '=value-name=dst-address']);
+            }
         }
 
-        $res = $ros->comm('/ip/firewall/nat/set', $params);
         if (isset($res['!trap'])) {
             echo json_encode(['success' => false, 'message' => $res['!trap']['message'] ?? 'Gagal memperbarui rule']);
         } else {

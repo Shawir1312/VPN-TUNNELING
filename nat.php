@@ -9,13 +9,46 @@ $routerOnline = ($ros && $ros->connected);
 $natRules = [];
 $publicIps = [];
 $myVpnUsers = [];
+$vpnLocalIps = [];
 
 if ($routerOnline) {
-    // 1. Ambil IP di Router untuk deteksi IP Publik
+    // 1. Ambil gateway VPN dari /ppp/profile untuk di-blacklist dari daftar IP Publik
+    $rawProfiles = $ros->comm('/ppp/profile/print');
+    foreach ($rawProfiles as $p) {
+        if (!empty($p['local-address'])) {
+            $vpnLocalIps[] = trim($p['local-address']);
+        }
+    }
+
+    // 2. Ambil IP Pools untuk mendeteksi subnet pool lokal
+    $rawPools = $ros->comm('/ip/pool/print');
+    foreach ($rawPools as $pl) {
+        $ranges = $pl['ranges'] ?? '';
+        // Ekstrak IP awalan pool (misal: 70.70.70.1)
+        if (preg_match('/^(\d+\.\d+\.\d+)\./', $ranges, $m)) {
+            $vpnLocalIps[] = $m[1] . '.1';
+        }
+    }
+
+    // 3. Ambil Cloud Public IP jika ada
+    $cloudInfo = $ros->comm('/ip/cloud/print');
+    $cloudPublicIp = $cloudInfo[0]['public-address'] ?? '';
+    if (!empty($cloudPublicIp)) {
+        $publicIps[] = [
+            'ip' => $cloudPublicIp,
+            'interface' => 'MikroTik Cloud Public IP'
+        ];
+    }
+
+    // 4. Ambil IP di Router untuk deteksi IP Publik (Filter out IP Pool lokal)
     $ipAddresses = $ros->comm('/ip/address/print', ['?disabled=no']);
     foreach ($ipAddresses as $addr) {
         $ipNet = explode('/', $addr['address'] ?? '')[0];
-        if (!empty($ipNet)) {
+        if (empty($ipNet)) continue;
+
+        // Cek apakah ini IP pool / gateway lokal VPN
+        $isLocalVpn = in_array($ipNet, $vpnLocalIps, true);
+        if (!$isLocalVpn) {
             $publicIps[] = [
                 'ip' => $ipNet,
                 'interface' => $addr['interface'] ?? 'wan'
@@ -23,7 +56,14 @@ if ($routerOnline) {
         }
     }
 
-    // 2. Ambil user VPN milik admin yang login untuk opsi target internal
+    // Hapus duplikat IP
+    $uniqueIps = [];
+    foreach ($publicIps as $p) {
+        $uniqueIps[$p['ip']] = $p;
+    }
+    $publicIps = array_values($uniqueIps);
+
+    // 5. Ambil user VPN milik admin yang login untuk opsi target internal
     $allSecrets = $ros->comm('/ppp/secret/print');
     $filteredSecrets = Helpers::filterByOwner($allSecrets, $currentUser);
     foreach ($filteredSecrets as $sec) {
@@ -36,7 +76,7 @@ if ($routerOnline) {
         }
     }
 
-    // 3. Ambil seluruh rule Dst-NAT & filter milik admin ini
+    // 6. Ambil seluruh rule Dst-NAT & filter milik admin ini
     $allRules = $ros->comm('/ip/firewall/nat/print', ['?chain=dstnat']);
     $natRules = Helpers::filterByOwner($allRules, $currentUser);
 
@@ -72,9 +112,9 @@ $defaultRemoteEndpoint = !empty($configuredDomain) ? $configuredDomain : $mainPu
     <div class="bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/80 rounded-2xl p-4 text-xs text-blue-700 dark:text-blue-300 flex items-start gap-3">
         <i data-lucide="info" class="w-5 h-5 flex-shrink-0 text-blue-500"></i>
         <div class="space-y-1">
-            <span class="font-semibold">Privasi Penuh & Alamat Remote Publik:</span>
+            <span class="font-semibold">Konfigurasi Remote Publik yang Benar:</span>
             <p class="text-blue-600 dark:text-blue-300/90 leading-relaxed">
-                Tiap admin hanya melihat rule port forward miliknya sendiri. Anda dapat menyalin alamat remote publik lengkap (<code><?= htmlspecialchars($defaultRemoteEndpoint) ?>:PORT</code>) untuk langsung mengakses perangkat dari internet.
+                Untuk remote dari internet (luar jaringan), <strong>Dst. Address harus menggunakan IP Publik atau dibiarkan Otomatis (Any IP)</strong>, BUKAN IP pool lokal (seperti 70.70.70.1). Jika Dst. Address diisi IP pool lokal, trafik dari internet tidak akan tembus ke target VPN Anda.
             </p>
         </div>
     </div>
@@ -119,7 +159,11 @@ $defaultRemoteEndpoint = !empty($configuredDomain) ? $configuredDomain : $mainPu
                             $isDisabled = ($r['disabled'] ?? 'false') === 'true';
                             $displayNote = Helpers::getDisplayComment($r['comment'] ?? '');
                             $publicPort = $r['dst-port'] ?? '80';
+                            $dstAddr = $r['dst-address'] ?? '';
                             $fullRemoteAddress = "{$defaultRemoteEndpoint}:{$publicPort}";
+                            
+                            // Deteksi jika user salah setting dst-address ke IP Pool lokal
+                            $isLocalPool = (!empty($dstAddr) && (in_array($dstAddr, $vpnLocalIps, true) || str_starts_with($dstAddr, '10.') || str_starts_with($dstAddr, '192.168.') || str_starts_with($dstAddr, '70.70.')));
                         ?>
                             <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-700/30 transition">
                                 <td class="py-3.5 px-4 font-mono">
@@ -129,9 +173,21 @@ $defaultRemoteEndpoint = !empty($configuredDomain) ? $configuredDomain : $mainPu
                                             <i data-lucide="copy" class="w-3.5 h-3.5"></i>
                                         </button>
                                     </div>
-                                    <div class="text-[10px] text-slate-400 mt-0.5">
-                                        Dst IP: <?= htmlspecialchars($r['dst-address'] ?? 'Any (Semua IP)') ?>
-                                    </div>
+                                    
+                                    <!-- Indikator Dst IP Publik vs IP Pool Lokal -->
+                                    <?php if ($isLocalPool): ?>
+                                        <div class="text-[11px] text-rose-500 font-semibold flex items-center gap-1 mt-0.5">
+                                            <span>⚠️ Dst IP: <?= htmlspecialchars($dstAddr) ?> (IP Pool Lokal - Klik Edit ganti ke Otomatis agar tembus dari internet!)</span>
+                                        </div>
+                                    <?php elseif (empty($dstAddr)): ?>
+                                        <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">
+                                            Dst IP: Otomatis (Semua IP Publik WAN & Domain)
+                                        </div>
+                                    <?php else: ?>
+                                        <div class="text-[10px] text-slate-400 mt-0.5">
+                                            Dst IP: <?= htmlspecialchars($dstAddr) ?>
+                                        </div>
+                                    <?php endif; ?>
                                 </td>
                                 <td class="py-3.5 px-4 font-mono uppercase text-[10px] font-semibold text-slate-600 dark:text-slate-300">
                                     <span class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 font-bold"><?= htmlspecialchars($r['protocol'] ?? 'tcp') ?></span>
@@ -175,7 +231,9 @@ $defaultRemoteEndpoint = !empty($configuredDomain) ? $configuredDomain : $mainPu
                     $isDisabled = ($r['disabled'] ?? 'false') === 'true';
                     $displayNote = Helpers::getDisplayComment($r['comment'] ?? '');
                     $publicPort = $r['dst-port'] ?? '80';
+                    $dstAddr = $r['dst-address'] ?? '';
                     $fullRemoteAddress = "{$defaultRemoteEndpoint}:{$publicPort}";
+                    $isLocalPool = (!empty($dstAddr) && (in_array($dstAddr, $vpnLocalIps, true) || str_starts_with($dstAddr, '10.') || str_starts_with($dstAddr, '192.168.') || str_starts_with($dstAddr, '70.70.')));
                 ?>
                     <div class="p-4 space-y-2.5">
                         <div class="flex items-start justify-between">
@@ -184,6 +242,15 @@ $defaultRemoteEndpoint = !empty($configuredDomain) ? $configuredDomain : $mainPu
                                     <span><?= htmlspecialchars($fullRemoteAddress) ?></span>
                                     <button onclick="copyText('<?= htmlspecialchars($fullRemoteAddress) ?>')" class="text-blue-500"><i data-lucide="copy" class="w-3.5 h-3.5"></i></button>
                                 </div>
+                                <?php if ($isLocalPool): ?>
+                                    <div class="text-[10px] text-rose-500 font-bold mt-0.5">
+                                        ⚠️ Dst IP: <?= htmlspecialchars($dstAddr) ?> (Salah! Ganti ke Otomatis via Edit)
+                                    </div>
+                                <?php else: ?>
+                                    <div class="text-[10px] text-emerald-600 dark:text-emerald-400 mt-0.5">
+                                        Dst IP: <?= empty($dstAddr) ? 'Otomatis (IP Publik)' : htmlspecialchars($dstAddr) ?>
+                                    </div>
+                                <?php endif; ?>
                                 <span class="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 mt-1 inline-block">
                                     <?= htmlspecialchars($r['protocol'] ?? 'tcp') ?>
                                 </span>
@@ -220,7 +287,7 @@ $defaultRemoteEndpoint = !empty($configuredDomain) ? $configuredDomain : $mainPu
 </div>
 
 <!-- ============================================================== -->
-<!-- MODAL: TAMBAH DST-NAT (DENGAN RANDOM PORT & TEMPLATES) -->
+<!-- MODAL: TAMBAH DST-NAT -->
 <!-- ============================================================== -->
 <div id="modalAddNat" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
     <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
@@ -244,15 +311,20 @@ $defaultRemoteEndpoint = !empty($configuredDomain) ? $configuredDomain : $mainPu
 
         <form id="formAddNat" class="space-y-3.5 text-xs">
             
-            <!-- IP Publik Target -->
+            <!-- IP Publik Target (PILIHAN DEFAULT: OTOMATIS/SEMUA IP PUBLIK) -->
             <div>
-                <label class="block text-slate-600 dark:text-slate-300 font-semibold mb-1">IP Publik MikroTik (Dst. Address)</label>
+                <label class="block text-slate-600 dark:text-slate-300 font-semibold mb-1">
+                    IP Publik MikroTik (Dst. Address)
+                </label>
                 <select name="dst_address" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500">
-                    <option value="">Semua IP (Any IP)</option>
+                    <option value="" selected>🌐 Otomatis / Semua IP Publik (Sangat Direkomendasikan)</option>
                     <?php foreach ($publicIps as $p): ?>
-                        <option value="<?= htmlspecialchars($p['ip']) ?>"><?= htmlspecialchars($p['ip']) ?> (<?= htmlspecialchars($p['interface']) ?>)</option>
+                        <option value="<?= htmlspecialchars($p['ip']) ?>">📍 IP Publik WAN: <?= htmlspecialchars($p['ip']) ?> (<?= htmlspecialchars($p['interface']) ?>)</option>
                     <?php endforeach; ?>
                 </select>
+                <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                    💡 Pilih <em>"Otomatis / Semua IP Publik"</em> agar trafik dari luar via Domain atau IP Publik WAN langsung tembus tanpa terkunci pada IP lokal pool.
+                </p>
             </div>
 
             <!-- Protocol & Public Port (DENGAN TOMBOL RANDOM PORT) -->
@@ -272,16 +344,14 @@ $defaultRemoteEndpoint = !empty($configuredDomain) ? $configuredDomain : $mainPu
                             <span>Acak Port (Random)</span>
                         </button>
                     </div>
-                    <div class="relative">
-                        <input type="number" name="dst_port" id="addNatDstPort" required placeholder="Klik 'Acak Port' atau ketik" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 font-mono">
-                    </div>
+                    <input type="number" name="dst_port" id="addNatDstPort" required placeholder="Klik 'Acak Port' atau ketik" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 font-mono">
                 </div>
             </div>
 
             <!-- Target Internal IP (DENGAN PILIHAN DARI USER VPN) -->
             <div>
                 <div class="flex items-center justify-between mb-1">
-                    <label class="text-slate-600 dark:text-slate-300 font-semibold">Target Internal IP *</label>
+                    <label class="text-slate-600 dark:text-slate-300 font-semibold">Target Internal IP * (IP User VPN)</label>
                     <?php if (!empty($myVpnUsers)): ?>
                         <span class="text-[10px] text-emerald-600 dark:text-emerald-400">Pilih dari User VPN atau Manual</span>
                     <?php endif; ?>
@@ -296,14 +366,13 @@ $defaultRemoteEndpoint = !empty($configuredDomain) ? $configuredDomain : $mainPu
                     </select>
                 <?php endif; ?>
 
-                <input type="text" name="to_addresses" id="addNatToAddress" required placeholder="misal: 10.10.10.5 atau IP server lokal" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 font-mono">
+                <input type="text" name="to_addresses" id="addNatToAddress" required placeholder="misal: 70.70.70.5 atau IP server lokal" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 font-mono">
             </div>
 
             <!-- Target Internal Port (DENGAN TEMPLATE WEB, WINBOX, API, DLL) -->
             <div>
                 <label class="block text-slate-600 dark:text-slate-300 font-semibold mb-1">Port Internal * (Template Cepat)</label>
                 
-                <!-- Quick Preset Buttons -->
                 <div class="flex flex-wrap gap-1.5 mb-2">
                     <button type="button" onclick="applyPortTemplate('8291', 'Winbox', 'addNatToPort', 'addNatComment')" class="px-2 py-1 rounded bg-slate-100 dark:bg-slate-700 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-[10px] font-semibold text-slate-700 dark:text-slate-300">
                         📦 Winbox (8291)
@@ -325,13 +394,13 @@ $defaultRemoteEndpoint = !empty($configuredDomain) ? $configuredDomain : $mainPu
                     </button>
                 </div>
 
-                <input type="number" name="to_ports" id="addNatToPort" required placeholder="Nomor port internal (misal: 80, 8291)" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 font-mono">
+                <input type="number" name="to_ports" id="addNatToPort" required placeholder="Nomor port internal (misal: 8090, 8291)" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500 font-mono">
             </div>
 
             <!-- Comment -->
             <div>
                 <label class="block text-slate-600 dark:text-slate-300 font-semibold mb-1">Keterangan / Catatan</label>
-                <input type="text" name="comment" id="addNatComment" placeholder="misal: Akses Winbox Router Cabang" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500">
+                <input type="text" name="comment" id="addNatComment" placeholder="misal: Akses Web Server Kantor" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:border-blue-500">
             </div>
 
             <div class="pt-3 flex justify-end space-x-2">
@@ -343,7 +412,7 @@ $defaultRemoteEndpoint = !empty($configuredDomain) ? $configuredDomain : $mainPu
 </div>
 
 <!-- ============================================================== -->
-<!-- MODAL: EDIT DST-NAT (EDIT PORT PUBLIK, TARGET IP, TARGET PORT, DLL) -->
+<!-- MODAL: EDIT DST-NAT (BISA MENGUBAH DST-ADDRESS KE OTOMATIS/PUBLIK) -->
 <!-- ============================================================== -->
 <div id="modalEditNat" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
     <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
@@ -368,13 +437,18 @@ $defaultRemoteEndpoint = !empty($configuredDomain) ? $configuredDomain : $mainPu
             <input type="hidden" name="id" id="editNatId">
 
             <div>
-                <label class="block text-slate-600 dark:text-slate-300 font-semibold mb-1">IP Publik MikroTik (Dst. Address)</label>
+                <label class="block text-slate-600 dark:text-slate-300 font-semibold mb-1">
+                    IP Publik MikroTik (Dst. Address)
+                </label>
                 <select name="dst_address" id="editNatDstAddress" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-100">
-                    <option value="">Semua IP (Any IP)</option>
+                    <option value="">🌐 Otomatis / Semua IP Publik (Sangat Direkomendasikan)</option>
                     <?php foreach ($publicIps as $p): ?>
-                        <option value="<?= htmlspecialchars($p['ip']) ?>"><?= htmlspecialchars($p['ip']) ?> (<?= htmlspecialchars($p['interface']) ?>)</option>
+                        <option value="<?= htmlspecialchars($p['ip']) ?>">📍 IP Publik WAN: <?= htmlspecialchars($p['ip']) ?> (<?= htmlspecialchars($p['interface']) ?>)</option>
                     <?php endforeach; ?>
                 </select>
+                <p class="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
+                    ✓ Pilih <em>"Otomatis / Semua IP Publik"</em> untuk memperbaiki rule agar bisa diakses dari internet via Domain atau IP Publik.
+                </p>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -449,21 +523,18 @@ function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
 function openModalAddNat() {
     document.getElementById('modalConflictAlert').classList.add('hidden');
-    // Jika port belum ada, generate random port otomatis
     if (!document.getElementById('addNatDstPort').value) {
         generateRandomPublicPort('addNatDstPort');
     }
     openModal('modalAddNat');
 }
 
-// Helper Salin Teks
 function copyText(str) {
     navigator.clipboard.writeText(str).then(() => {
         alert(`✅ Alamat remote disalin: ${str}`);
     });
 }
 
-// Generator Port Publik Acak (10000 - 65000)
 function generateRandomPublicPort(targetInputId) {
     const min = 10000;
     const max = 65000;
@@ -471,14 +542,12 @@ function generateRandomPublicPort(targetInputId) {
     document.getElementById(targetInputId).value = randomPort;
 }
 
-// Handler Pilih User VPN
 function handleSelectVpnUser(selectEl, targetInputId) {
     if (selectEl.value) {
         document.getElementById(targetInputId).value = selectEl.value;
     }
 }
 
-// Handler Template Port Internal
 function applyPortTemplate(port, label, portInputId, commentInputId) {
     document.getElementById(portInputId).value = port;
     const commentInput = document.getElementById(commentInputId);
@@ -490,13 +559,16 @@ function applyPortTemplate(port, label, portInputId, commentInputId) {
 // Buka Modal Edit Rule
 function openEditNatModal(rule) {
     document.getElementById('editNatId').value = rule['.id'];
-    document.getElementById('editNatDstAddress').value = rule['dst-address'] || '';
+    
+    // Pilih Dst Address (jika kosong atau IP lokal, set ke "")
+    const dstSelect = document.getElementById('editNatDstAddress');
+    dstSelect.value = rule['dst-address'] || '';
+
     document.getElementById('editNatProtocol').value = rule['protocol'] || 'tcp';
     document.getElementById('editNatDstPort').value = rule['dst-port'] || '';
     document.getElementById('editNatToAddress').value = rule['to-addresses'] || '';
     document.getElementById('editNatToPort').value = rule['to-ports'] || '';
 
-    // Bersihkan tag owner dari comment
     let comment = rule['comment'] || '';
     comment = comment.replace(/\[owner:[a-zA-Z0-9_\-\.]+\]/gi, '').trim();
     document.getElementById('editNatComment').value = comment;
